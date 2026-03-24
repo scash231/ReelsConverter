@@ -1,0 +1,7 @@
+.env
+*.json
+*.mp4
+ffmpeg_bin/
+downloads/
+Downloads/
+done_compilation/
