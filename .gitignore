@@ -26,3 +26,6 @@ ffmpeg_bin/
 downloads/
 Downloads/
 done_compilation/
+
+# Publish output
+publish/
