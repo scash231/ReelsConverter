@@ -1,0 +1,377 @@
+<Window x:Class="ReelsConverterUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ReelsConverter" Width="760" Height="560"
+        MinWidth="600" MinHeight="480"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" ResizeMode="CanResizeWithGrip"
+        WindowStartupLocation="CenterScreen">
+
+    <!-- ═══════════════════ WINDOW RESOURCES ═══════════════════ -->
+    <Window.Resources>
+        <Storyboard x:Key="FadeInWindow">
+            <DoubleAnimation Storyboard.TargetName="RootBorder"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0" To="1" Duration="0:0:0.45">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="WindowScale"
+                             Storyboard.TargetProperty="ScaleX"
+                             From="0.96" To="1" Duration="0:0:0.45">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="WindowScale"
+                             Storyboard.TargetProperty="ScaleY"
+                             From="0.96" To="1" Duration="0:0:0.45">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+    </Window.Resources>
+
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard Storyboard="{StaticResource FadeInWindow}"/>
+        </EventTrigger>
+    </Window.Triggers>
+
+    <!-- ═══════════════════ ROOT BORDER ═══════════════════ -->
+    <Border x:Name="RootBorder" CornerRadius="8"
+            Background="{StaticResource BgDeep}"
+            BorderBrush="{StaticResource BorderSub}" BorderThickness="1"
+            Opacity="0" RenderTransformOrigin="0.5,0.5">
+        <Border.RenderTransform>
+            <ScaleTransform x:Name="WindowScale"/>
+        </Border.RenderTransform>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="34"/>   <!-- Title bar -->
+                <RowDefinition Height="*"/>    <!-- Content -->
+                <RowDefinition Height="28"/>   <!-- Status bar -->
+            </Grid.RowDefinitions>
+
+            <!-- ═══════════ TITLE BAR ═══════════ -->
+            <Border Grid.Row="0" Background="#141416"
+                    CornerRadius="8,8,0,0"
+                    MouseLeftButtonDown="TitleBar_Drag">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <TextBlock Text="ReelsConverter" FontWeight="SemiBold"
+                                   FontSize="12" Foreground="{StaticResource TextPrimary}"/>
+                        <TextBlock Text=" v2.0" FontSize="9"
+                                   Foreground="{StaticResource TextSec}"
+                                   VerticalAlignment="Center" Margin="4,1,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,4,0">
+                        <Button Style="{StaticResource IconBtn}"
+                                Foreground="{StaticResource TextSec}" Width="30" Height="30"
+                                Click="Minimize_Click">
+                            <TextBlock Text="─" FontSize="12"/>
+                        </Button>
+                        <Button Style="{StaticResource IconBtn}"
+                                Foreground="{StaticResource ErrorRed}" Width="30" Height="30"
+                                Click="Close_Click">
+                            <TextBlock Text="✕" FontSize="11"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ═══════════ MAIN CONTENT (two-column grid) ═══════════ -->
+            <Grid Grid.Row="1" Margin="12,8,12,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- ──── Header ──── -->
+                <Border Grid.Row="0" Padding="0,2,0,6">
+                    <TextBlock Text="Instagram · TikTok · YouTube → Shorts"
+                               FontSize="11" Foreground="{StaticResource TextSec}"/>
+                </Border>
+
+                <!-- ──── Two-column layout ──── -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ═══ LEFT COLUMN: Platform, URL, Metadata ═══ -->
+                    <StackPanel Grid.Column="0">
+
+                        <!-- TAB BAR -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Lbl}" Text="PLATTFORM"/>
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="TabInsta" Style="{StaticResource TabBtn}"
+                                                 Content="📷 Instagram" GroupName="Platform"
+                                                 IsChecked="True" Checked="Tab_Changed"/>
+                                    <RadioButton x:Name="TabTikTok" Style="{StaticResource TabBtn}"
+                                                 Content="🎵 TikTok" GroupName="Platform"
+                                                 Checked="Tab_Changed"/>
+                                    <RadioButton x:Name="TabYouTube" Style="{StaticResource TabBtn}"
+                                                 Content="▶ YouTube" GroupName="Platform"
+                                                 Checked="Tab_Changed"/>
+                                </StackPanel>
+                                <Border x:Name="TabIndicator" Height="2" CornerRadius="1" Margin="0,6,0,0"
+                                        HorizontalAlignment="Left" Width="80"
+                                        Background="{StaticResource Accent}">
+                                    <Border.RenderTransform>
+                                        <TranslateTransform x:Name="TabIndicatorTranslate"/>
+                                    </Border.RenderTransform>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- URL INPUT -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Lbl}" x:Name="LblUrl"
+                                           Text="INSTAGRAM REEL URL"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtUrl" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" ToolTip="Aus Zwischenablage einfügen"
+                                            Style="{StaticResource IconBtn}"
+                                            Foreground="{StaticResource TextSec}"
+                                            Margin="8,0,0,0" Click="Paste_Click">
+                                        <TextBlock Text="📋" FontSize="16"/>
+                                    </Button>
+                                    <Button Grid.Column="2" Content="Metadaten"
+                                            Style="{StaticResource OutlineBtn}"
+                                            Margin="4,0,0,0" x:Name="BtnFetch"
+                                            Click="Fetch_Click"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- METADATA PREVIEW (hidden until fetched) -->
+                        <Border x:Name="BorderMeta" Style="{StaticResource Card}"
+                                Visibility="Collapsed" Opacity="0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Width="56" Height="56" CornerRadius="6"
+                                        Background="{StaticResource BgElevated}" Margin="0,0,14,0">
+                                    <TextBlock Text="🎥" FontSize="28"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock x:Name="TxtMetaTitle" FontWeight="SemiBold"
+                                               FontSize="12" Foreground="{StaticResource TextPrimary}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock x:Name="TxtMetaUploader" FontSize="12"
+                                               Foreground="{StaticResource TextSec}" Margin="0,3,0,0"/>
+                                    <TextBlock x:Name="TxtMetaDuration" FontSize="11"
+                                               Foreground="{StaticResource TextSec}" Margin="0,2,0,0"/>
+                                    <ItemsControl x:Name="TagsList" Margin="0,6,0,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border CornerRadius="4" Padding="6,2"
+                                                        Margin="0,0,4,4"
+                                                        Background="{StaticResource BgElevated}">
+                                                    <TextBlock Text="{Binding}" FontSize="10"
+                                                               Foreground="{StaticResource Accent}"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                    </StackPanel>
+
+                    <!-- ═══ RIGHT COLUMN: Mode, Settings ═══ -->
+                    <StackPanel Grid.Column="2">
+
+                        <!-- MODE SELECTION -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Lbl}" Text="AKTION"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <RadioButton x:Name="RbUpload" Style="{StaticResource ModeCard}"
+                                                 GroupName="Mode" IsChecked="True"
+                                                 Checked="Mode_Changed">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="☁" FontSize="16" Margin="0,0,6,0"
+                                                           Foreground="{StaticResource Accent}"/>
+                                                <TextBlock Text="YouTube Upload" FontWeight="SemiBold"
+                                                           FontSize="12"/>
+                                            </StackPanel>
+                                            <TextBlock Text="Reel direkt als Short hochladen"
+                                                       FontSize="10" Foreground="{StaticResource TextSec}"
+                                                       Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                    <RadioButton Grid.Column="2" x:Name="RbDownload"
+                                                 Style="{StaticResource ModeCard}"
+                                                 GroupName="Mode" Checked="Mode_Changed">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="💾" FontSize="16" Margin="0,0,6,0"
+                                                           Foreground="{StaticResource AccentPink}"/>
+                                                <TextBlock Text="Herunterladen" FontWeight="SemiBold"
+                                                           FontSize="12"/>
+                                            </StackPanel>
+                                            <TextBlock Text="MP4 lokal speichern"
+                                                       FontSize="10" Foreground="{StaticResource TextSec}"
+                                                       Margin="0,3,0,0"/>
+                                        </StackPanel>
+                                    </RadioButton>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- UPLOAD SETTINGS -->
+                        <Border x:Name="BorderUpload" Style="{StaticResource Card}"
+                                Visibility="Collapsed" Opacity="0">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Lbl}" Text="YOUTUBE EINSTELLUNGEN"/>
+                                <TextBlock Text="Titel" FontSize="11"
+                                           Foreground="{StaticResource TextSec}" Margin="0,0,0,3"/>
+                                <TextBox x:Name="TxtTitle"/>
+                                <Grid Margin="0,8,0,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Beschreibung" FontSize="11"
+                                               Foreground="{StaticResource TextSec}"
+                                               VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Style="{StaticResource IconBtn}"
+                                            ToolTip="Beschreibung bearbeiten"
+                                            Click="EditDescription_Click">
+                                        <TextBlock Text="✏" FontSize="13"
+                                                   Foreground="{StaticResource TextSec}"/>
+                                    </Button>
+                                </Grid>
+                                <TextBox x:Name="TxtDescription" IsReadOnly="True"
+                                         TextWrapping="Wrap" Height="44"
+                                         VerticalScrollBarVisibility="Auto"
+                                         ToolTip="Klicke ✏ oder Doppelklick zum Bearbeiten"
+                                         MouseDoubleClick="EditDescription_Click"/>
+                                <TextBlock Text="Sichtbarkeit" FontSize="11"
+                                           Foreground="{StaticResource TextSec}" Margin="0,8,0,3"/>
+                                <ComboBox x:Name="CmbPrivacy" SelectedIndex="0">
+                                    <ComboBoxItem Content="Öffentlich" Tag="public"/>
+                                    <ComboBoxItem Content="Nicht gelistet" Tag="unlisted"/>
+                                    <ComboBoxItem Content="Privat" Tag="private"/>
+                                </ComboBox>
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox x:Name="ChkFingerprint" IsChecked="True"
+                                              Foreground="{StaticResource TextSec}"
+                                              Content="Fingerprint-Bypass" FontSize="11"
+                                              VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="CmbFingerprintMethod" Grid.Column="1"
+                                              Margin="8,0,0,0" SelectedIndex="2"
+                                              IsEnabled="{Binding IsChecked, ElementName=ChkFingerprint}">
+                                        <ComboBoxItem Content="Nur Metadaten" Tag="metadata"/>
+                                        <ComboBoxItem Content="Leicht"        Tag="light"/>
+                                        <ComboBoxItem Content="Standard"      Tag="standard"/>
+                                        <ComboBoxItem Content="Stark"         Tag="strong"/>
+                                    </ComboBox>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- DOWNLOAD SETTINGS -->
+                        <Border x:Name="BorderDownload" Style="{StaticResource Card}"
+                                Visibility="Collapsed" Opacity="0">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Lbl}" Text="DOWNLOAD EINSTELLUNGEN"/>
+                                <TextBlock Text="Speicherort" FontSize="11"
+                                           Foreground="{StaticResource TextSec}" Margin="0,0,0,3"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtOutputDir" IsReadOnly="True"/>
+                                    <Button Grid.Column="1"
+                                            Style="{StaticResource OutlineBtn}"
+                                            Margin="8,0,0,0" Click="Browse_Click">
+                                        <TextBlock Text="📂 Durchsuchen"/>
+                                    </Button>
+                                </Grid>
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox x:Name="ChkFingerprintDl" IsChecked="True"
+                                              Foreground="{StaticResource TextSec}"
+                                              Content="Fingerprint-Bypass" FontSize="11"
+                                              VerticalAlignment="Center"/>
+                                    <ComboBox x:Name="CmbFingerprintMethodDl" Grid.Column="1"
+                                              Margin="8,0,0,0" SelectedIndex="2"
+                                              IsEnabled="{Binding IsChecked, ElementName=ChkFingerprintDl}">
+                                        <ComboBoxItem Content="Nur Metadaten" Tag="metadata"/>
+                                        <ComboBoxItem Content="Leicht"        Tag="light"/>
+                                        <ComboBoxItem Content="Standard"      Tag="standard"/>
+                                        <ComboBoxItem Content="Stark"         Tag="strong"/>
+                                    </ComboBox>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </Grid>
+
+                <!-- START BUTTON -->
+                <Button x:Name="BtnStart" Grid.Row="2" Style="{StaticResource GradBtn}"
+                        Content="Starten" Margin="0,4,0,0"
+                        Click="Start_Click"/>
+            </Grid>
+
+            <!-- ═══════════ STATUS BAR ═══════════ -->
+            <Border Grid.Row="2" Background="#141416"
+                    CornerRadius="0,0,8,8" Padding="12,0">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Ellipse x:Name="StatusDot" Width="6" Height="6" Margin="0,0,6,0">
+                            <Ellipse.Fill>
+                                <SolidColorBrush x:Name="StatusDotColor" Color="#5AAF6E"/>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock x:Name="TxtStatusBar" Text="Backend wird gestartet…"
+                                   FontSize="10" Foreground="{StaticResource TextSec}"/>
+                    </StackPanel>
+                    </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

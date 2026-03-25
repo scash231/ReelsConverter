@@ -1,6 +1,27 @@
+# Secrets & credentials
 .env
-*.json
+*.env
+client_secret*.json
+token.json
+
+# Media
 *.mp4
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# .NET build output
+bin/
+obj/
+*.user
+*.suo
+
+# Visual Studio
+.vs/
+
+# App runtime dirs
 ffmpeg_bin/
 downloads/
 Downloads/
