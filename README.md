@@ -9,38 +9,7 @@ C# WPF app with a Python backend for downloading and re-uploading short-form vid
 - Downloads videos from Instagram Reels, TikTok, and YouTube via yt-dlp
 - Optionally runs the video through one of four FFmpeg processing passes to alter the file signature before upload
 - Uploads directly to YouTube as a Short via the Data API v3
-- Shows real-time progress through SSE — no polling, no fake loading bars
 
----
-
-## Project structure
-```
-reelsconverter/
-├── backend/
-│   ├── server.py              REST API on port 8765
-│   ├── downloader.py          yt-dlp wrapper
-│   ├── transformer.py         FFmpeg processing (4 modes)
-│   ├── uploader.py            YouTube Data API v3
-│   ├── ffmpeg_manager.py      Downloads FFmpeg automatically on first run
-│   └── requirements.txt
-└── ReelsConverterUI/
-    ├── MainWindow.xaml/.cs         Two-column layout, 760x560
-    ├── ProgressWindow.xaml/.cs     Floating progress popup
-    ├── DescriptionEditorWindow.xaml/.cs
-    ├── App.xaml                    Dark theme, custom styles
-    ├── Models/Models.cs
-    └── Services/
-        ├── BackendService.cs       HTTP + SSE client
-        └── BackendLauncher.cs      Spawns the Python process
-```
-
----
-
-## UI
-
-Dark theme with a blue accent (`#7A9EC0`), borderless window with rounded corners, and a tab switcher for Instagram / TikTok / YouTube. All controls fit in a two-column layout without scrolling. A floating progress popup opens when a job starts and closes itself on completion. Long descriptions go in a separate popup editor.
-
----
 
 ## Processing modes
 
@@ -73,16 +42,3 @@ Uploads to YouTube via OAuth2. Pulls title, description, and tags from the sourc
 cd backend
 pip install -r requirements.txt
 ```
-
-**Run**
-```powershell
-dotnet run --project ReelsConverterUI
-```
-
-The WPF app starts the backend automatically. No need to run Python separately.
-
----
-
-## Notes
-
-`client_secret_*.json`, `token.json`, `ffmpeg_bin/`, `downloads/`, and `done_compilation/` are all in `.gitignore` and won't be committed.
