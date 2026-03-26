@@ -4,6 +4,9 @@
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Assets/Strings.de.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
 
             <!-- ══════ Color Palette ══════ -->
             <SolidColorBrush x:Key="BgDeep"      Color="#141416"/>

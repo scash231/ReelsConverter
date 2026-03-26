@@ -1,0 +1,244 @@
+<Window x:Class="ReelsConverterUI.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Settings" Width="480" Height="600"
+        Icon="app.ico"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Resources>
+        <Storyboard x:Key="FadeInWindow">
+            <DoubleAnimation Storyboard.TargetName="RootBorder"
+                             Storyboard.TargetProperty="Opacity"
+                             From="0" To="1" Duration="0:0:0.35">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="WindowScale"
+                             Storyboard.TargetProperty="ScaleX"
+                             From="0.96" To="1" Duration="0:0:0.35">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <DoubleAnimation Storyboard.TargetName="WindowScale"
+                             Storyboard.TargetProperty="ScaleY"
+                             From="0.96" To="1" Duration="0:0:0.35">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+    </Window.Resources>
+
+    <Window.Triggers>
+        <EventTrigger RoutedEvent="Window.Loaded">
+            <BeginStoryboard Storyboard="{StaticResource FadeInWindow}"/>
+        </EventTrigger>
+    </Window.Triggers>
+
+    <Border x:Name="RootBorder" CornerRadius="8"
+            Background="{StaticResource BgDeep}"
+            BorderBrush="{StaticResource BorderSub}" BorderThickness="1"
+            Opacity="0" RenderTransformOrigin="0.5,0.5">
+        <Border.RenderTransform>
+            <ScaleTransform x:Name="WindowScale"/>
+        </Border.RenderTransform>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="34"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title bar -->
+            <Border Grid.Row="0" Background="#141416" CornerRadius="8,8,0,0"
+                    MouseLeftButtonDown="TitleBar_Drag">
+                <Grid>
+                    <TextBlock Text="{DynamicResource SettingsTitle}" FontWeight="SemiBold"
+                               FontSize="12" Foreground="{StaticResource TextPrimary}"
+                               VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    <Button HorizontalAlignment="Right"
+                            Style="{StaticResource IconBtn}"
+                            Foreground="{StaticResource ErrorRed}"
+                            Width="30" Height="30"
+                            Click="Cancel_Click">
+                        <TextBlock Text="✕" FontSize="11"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Scrollable content -->
+            <ScrollViewer Grid.Row="1"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Margin="12,8,12,0">
+                <StackPanel>
+
+                    <!-- GENERAL -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Lbl}"
+                                       Text="{DynamicResource SettingsGeneral}"/>
+
+                            <!-- Language -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{DynamicResource SettingsLanguage}"
+                                           FontSize="12" Foreground="{StaticResource TextSec}"
+                                           VerticalAlignment="Center"/>
+                                <Border Grid.Column="1"
+                                        BorderBrush="{StaticResource BorderSub}"
+                                        BorderThickness="1" CornerRadius="4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button x:Name="SLangDE" Content="DE"
+                                                Style="{StaticResource IconBtn}"
+                                                FontSize="10" FontWeight="SemiBold"
+                                                Width="28" Height="22"
+                                                Click="SLangDE_Click"/>
+                                        <Border Width="1" Background="{StaticResource BorderSub}"
+                                                Margin="0,5"/>
+                                        <Button x:Name="SLangEN" Content="EN"
+                                                Style="{StaticResource IconBtn}"
+                                                FontSize="10" FontWeight="SemiBold"
+                                                Width="28" Height="22"
+                                                Click="SLangEN_Click"/>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <CheckBox x:Name="ChkAutoPaste"
+                                      Content="{DynamicResource SettingsAutoPaste}"
+                                      Foreground="{StaticResource TextSec}" FontSize="12"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- UPLOAD DEFAULTS -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Lbl}"
+                                       Text="{DynamicResource SettingsUpload}"/>
+
+                            <TextBlock Text="{DynamicResource SettingsDefaultPrivacy}"
+                                       FontSize="11" Foreground="{StaticResource TextSec}"
+                                       Margin="0,0,0,3"/>
+                            <ComboBox x:Name="CmbDefaultPrivacy" Margin="0,0,0,10" SelectedIndex="0">
+                                <ComboBoxItem Content="{DynamicResource PrivacyPublic}"   Tag="public"/>
+                                <ComboBoxItem Content="{DynamicResource PrivacyUnlisted}" Tag="unlisted"/>
+                                <ComboBoxItem Content="{DynamicResource PrivacyPrivate}"  Tag="private"/>
+                            </ComboBox>
+
+                            <CheckBox x:Name="ChkAutoShorts" Margin="0,0,0,10"
+                                      Content="{DynamicResource SettingsAutoShorts}"
+                                      Foreground="{StaticResource TextSec}" FontSize="12"/>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <CheckBox x:Name="ChkDefaultFp"
+                                          Content="{DynamicResource SettingsFpBypass}"
+                                          Foreground="{StaticResource TextSec}" FontSize="11"
+                                          VerticalAlignment="Center"/>
+                                <ComboBox x:Name="CmbDefaultFpMethod" Grid.Column="1"
+                                          Margin="8,0,0,0" SelectedIndex="2"
+                                          IsEnabled="{Binding IsChecked, ElementName=ChkDefaultFp}">
+                                    <ComboBoxItem Content="{DynamicResource FpMetadata}" Tag="metadata"/>
+                                    <ComboBoxItem Content="{DynamicResource FpLight}"    Tag="light"/>
+                                    <ComboBoxItem Content="{DynamicResource FpStandard}" Tag="standard"/>
+                                    <ComboBoxItem Content="{DynamicResource FpStrong}"   Tag="strong"/>
+                                </ComboBox>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- DOWNLOAD DEFAULTS -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Lbl}"
+                                       Text="{DynamicResource SettingsDownload}"/>
+
+                            <TextBlock Text="{DynamicResource SettingsDefaultOutputDir}"
+                                       FontSize="11" Foreground="{StaticResource TextSec}"
+                                       Margin="0,0,0,3"/>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="TxtDefaultOutputDir" IsReadOnly="True"
+                                         VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Style="{StaticResource OutlineBtn}"
+                                        Content="{DynamicResource BtnBrowse}"
+                                        Margin="8,0,0,0" Click="BrowseOutput_Click"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <CheckBox x:Name="ChkDefaultFpDl"
+                                          Content="{DynamicResource SettingsFpBypass}"
+                                          Foreground="{StaticResource TextSec}" FontSize="11"
+                                          VerticalAlignment="Center"/>
+                                <ComboBox x:Name="CmbDefaultFpMethodDl" Grid.Column="1"
+                                          Margin="8,0,0,0" SelectedIndex="2"
+                                          IsEnabled="{Binding IsChecked, ElementName=ChkDefaultFpDl}">
+                                    <ComboBoxItem Content="{DynamicResource FpMetadata}" Tag="metadata"/>
+                                    <ComboBoxItem Content="{DynamicResource FpLight}"    Tag="light"/>
+                                    <ComboBoxItem Content="{DynamicResource FpStandard}" Tag="standard"/>
+                                    <ComboBoxItem Content="{DynamicResource FpStrong}"   Tag="strong"/>
+                                </ComboBox>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- BACKEND -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Lbl}"
+                                       Text="{DynamicResource SettingsBackend}"/>
+
+                            <TextBlock Text="{DynamicResource SettingsBackendUrl}"
+                                       FontSize="11" Foreground="{StaticResource TextSec}"
+                                       Margin="0,0,0,3"/>
+                            <TextBox x:Name="TxtBackendUrl" Margin="0,0,0,10"/>
+
+                            <TextBlock Text="{DynamicResource SettingsBackendTimeout}"
+                                       FontSize="11" Foreground="{StaticResource TextSec}"
+                                       Margin="0,0,0,3"/>
+                            <TextBox x:Name="TxtBackendTimeout"/>
+                        </StackPanel>
+                    </Border>
+
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Footer -->
+            <Grid Grid.Row="2" Margin="12,8,12,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="1"
+                        Content="{DynamicResource BtnCancelSettings}"
+                        Style="{StaticResource OutlineBtn}"
+                        Margin="0,0,8,0"
+                        Click="Cancel_Click"/>
+                <Button Grid.Column="2"
+                        Content="{DynamicResource BtnSaveSettings}"
+                        Style="{StaticResource GradBtn}" Width="100"
+                        Click="Save_Click"/>
+            </Grid>
+
+        </Grid>
+    </Border>
+</Window>

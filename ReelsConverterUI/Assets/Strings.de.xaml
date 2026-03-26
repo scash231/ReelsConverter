@@ -1,0 +1,98 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <sys:String x:Key="LangCode">de</sys:String>
+
+    <!-- Workflow bar -->
+    <sys:String x:Key="Step1">URL einfügen</sys:String>
+    <sys:String x:Key="Step2">Metadaten laden</sys:String>
+    <sys:String x:Key="Step3">Aktion wählen &amp; Starten</sys:String>
+
+    <!-- Sections -->
+    <sys:String x:Key="SectionPlatform">PLATTFORM</sys:String>
+    <sys:String x:Key="SectionQuickActions">SCHNELLAKTIONEN</sys:String>
+    <sys:String x:Key="SectionAction">AKTION</sys:String>
+    <sys:String x:Key="SectionYTSettings">YOUTUBE EINSTELLUNGEN</sys:String>
+    <sys:String x:Key="SectionDLSettings">DOWNLOAD EINSTELLUNGEN</sys:String>
+
+    <!-- Buttons -->
+    <sys:String x:Key="TipPaste">Aus Zwischenablage einfügen</sys:String>
+    <sys:String x:Key="BtnFetch">Metadaten</sys:String>
+    <sys:String x:Key="BtnCopyTitle">📋 Titel</sys:String>
+    <sys:String x:Key="BtnCopyUrl">🔗 URL kopieren</sys:String>
+    <sys:String x:Key="BtnOpenBrowser">🌐 Im Browser</sys:String>
+    <sys:String x:Key="TipCopyTitle">Titel in die Zwischenablage kopieren</sys:String>
+    <sys:String x:Key="TipCopyUrl">Quell-URL in die Zwischenablage kopieren</sys:String>
+    <sys:String x:Key="TipOpenBrowser">Video im Standardbrowser öffnen</sys:String>
+    <sys:String x:Key="BtnBrowse">📂 Durchsuchen</sys:String>
+    <sys:String x:Key="BtnStart">Starten</sys:String>
+
+    <!-- Mode cards -->
+    <sys:String x:Key="ModeUploadTitle">YouTube Upload</sys:String>
+    <sys:String x:Key="ModeUploadDesc">Reel direkt als Short hochladen</sys:String>
+    <sys:String x:Key="ModeDownloadTitle">Herunterladen</sys:String>
+    <sys:String x:Key="ModeDownloadDesc">MP4 lokal speichern</sys:String>
+
+    <!-- YouTube settings -->
+    <sys:String x:Key="LblTitleField">Titel</sys:String>
+    <sys:String x:Key="LblDescField">Beschreibung</sys:String>
+    <sys:String x:Key="TipEditDesc">Beschreibung bearbeiten</sys:String>
+    <sys:String x:Key="TipDescBox">Klicke ✏ oder Doppelklick zum Bearbeiten</sys:String>
+    <sys:String x:Key="LblVisibility">Sichtbarkeit</sys:String>
+    <sys:String x:Key="PrivacyPublic">Öffentlich</sys:String>
+    <sys:String x:Key="PrivacyUnlisted">Nicht gelistet</sys:String>
+    <sys:String x:Key="PrivacyPrivate">Privat</sys:String>
+    <sys:String x:Key="FpMetadata">Nur Metadaten</sys:String>
+    <sys:String x:Key="FpLight">Leicht</sys:String>
+    <sys:String x:Key="FpStandard">Standard</sys:String>
+    <sys:String x:Key="FpStrong">Stark</sys:String>
+
+    <!-- Download settings -->
+    <sys:String x:Key="LblSavePath">Speicherort</sys:String>
+
+    <!-- Status / code-behind -->
+    <sys:String x:Key="StatusStarting">Backend wird gestartet…</sys:String>
+    <sys:String x:Key="StatusBackendReady">Backend bereit</sys:String>
+    <sys:String x:Key="StatusBackendDown">Backend nicht erreichbar</sys:String>
+    <sys:String x:Key="StatusBackendErrPrefix">Backend-Fehler:</sys:String>
+    <sys:String x:Key="StatusLoading">Lade Metadaten…</sys:String>
+    <sys:String x:Key="StatusMetaLoaded">Metadaten geladen</sys:String>
+    <sys:String x:Key="StatusLoadErr">Fehler beim Laden</sys:String>
+    <sys:String x:Key="StatusCompleted">Erfolgreich abgeschlossen!</sys:String>
+    <sys:String x:Key="StatusCancelled">Abgebrochen</sys:String>
+    <sys:String x:Key="StatusErrPrefix">Fehler:</sys:String>
+    <sys:String x:Key="ErrNoUrl">Bitte eine URL eingeben.</sys:String>
+    <sys:String x:Key="ErrNoBackend">Backend nicht bereit.</sys:String>
+    <sys:String x:Key="ErrNoTitle">Bitte einen Titel eingeben.</sys:String>
+    <sys:String x:Key="ErrNoSavePath">Bitte einen Speicherort wählen.</sys:String>
+    <sys:String x:Key="ErrNoMeta">Keine Metadaten empfangen.</sys:String>
+    <sys:String x:Key="ErrPrefix">Fehler:</sys:String>
+
+    <!-- Settings window -->
+    <sys:String x:Key="SettingsTitle">Einstellungen</sys:String>
+    <sys:String x:Key="TipSettings">Einstellungen öffnen</sys:String>
+    <sys:String x:Key="SettingsGeneral">ALLGEMEIN</sys:String>
+    <sys:String x:Key="SettingsLanguage">Sprache</sys:String>
+    <sys:String x:Key="SettingsAutoPaste">URL automatisch aus Zwischenablage einfügen</sys:String>
+    <sys:String x:Key="SettingsUpload">UPLOAD STANDARD</sys:String>
+    <sys:String x:Key="SettingsDefaultPrivacy">Standard-Sichtbarkeit</sys:String>
+    <sys:String x:Key="SettingsAutoShorts">„#Shorts" automatisch zur Beschreibung hinzufügen</sys:String>
+    <sys:String x:Key="SettingsFpBypass">Fingerprint-Bypass aktivieren</sys:String>
+    <sys:String x:Key="SettingsDownload">DOWNLOAD STANDARD</sys:String>
+    <sys:String x:Key="SettingsDefaultOutputDir">Standardspeicherort</sys:String>
+    <sys:String x:Key="SettingsBackend">BACKEND</sys:String>
+    <sys:String x:Key="SettingsBackendUrl">Backend-URL</sys:String>
+    <sys:String x:Key="SettingsBackendTimeout">Startzeit-Limit (Sekunden)</sys:String>
+    <sys:String x:Key="BtnSaveSettings">Speichern</sys:String>
+    <sys:String x:Key="BtnCancelSettings">Abbrechen</sys:String>
+
+    <!-- Additional quick actions -->
+    <sys:String x:Key="BtnCopyDesc">Beschreibung</sys:String>
+    <sys:String x:Key="BtnCopyTags">Tags</sys:String>
+    <sys:String x:Key="BtnClearForm">Zurücksetzen</sys:String>
+    <sys:String x:Key="TipCopyDesc">Beschreibung in die Zwischenablage kopieren</sys:String>
+    <sys:String x:Key="TipCopyTags">Tags als Text kopieren</sys:String>
+    <sys:String x:Key="TipClearForm">Eingabe und Metadaten zurücksetzen</sys:String>
+
+</ResourceDictionary>

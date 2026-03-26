@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -12,12 +13,16 @@ namespace ReelsConverterUI;
 public partial class MainWindow : Window
 {
     private readonly BackendLauncher _launcher = new();
-    private readonly BackendService _backend = new();
+    private readonly BackendService _backend = new(SettingsService.Current.BackendUrl);
     private MetadataResponse? _meta;
     private CancellationTokenSource? _cts;
     private ProgressWindow? _progressWin;
+    private LogViewerWindow? _logViewer;
+    private string _lastJobLog = string.Empty;
+    private string _lastLogEntry = string.Empty;
     private bool _backendReady;
     private string _currentPlatform = "instagram";
+    private string _currentLang = "de";
 
     public MainWindow()
     {
@@ -31,19 +36,31 @@ public partial class MainWindow : Window
     // ════════════════════════════════════════════════════════════
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        ApplySettings();
         AnimateTabIndicator(TabInsta);
         Mode_Changed(sender, e);
+
+        Activated += (_, _) =>
+        {
+            if (SettingsService.Current.AutoPasteOnFocus
+                && Clipboard.ContainsText()
+                && string.IsNullOrWhiteSpace(TxtUrl.Text))
+            {
+                TxtUrl.Text = Clipboard.GetText().Trim();
+            }
+        };
 
         try
         {
             _launcher.Start();
-            _backendReady = await _backend.WaitForHealthAsync(CancellationToken.None);
-            SetStatus(_backendReady ? "Backend bereit" : "Backend nicht erreichbar",
+            _backendReady = await _backend.WaitForHealthAsync(
+                CancellationToken.None, SettingsService.Current.BackendTimeoutSeconds);
+            SetStatus(_backendReady ? L("StatusBackendReady") : L("StatusBackendDown"),
                       _backendReady);
         }
         catch (Exception ex)
         {
-            SetStatus($"Backend-Fehler: {ex.Message}", false);
+            SetStatus($"{L("StatusBackendErrPrefix")} {ex.Message}", false);
         }
     }
 
@@ -53,6 +70,11 @@ public partial class MainWindow : Window
     private void TitleBar_Drag(object s, MouseButtonEventArgs e) { if (e.LeftButton == MouseButtonState.Pressed) DragMove(); }
     private void Minimize_Click(object s, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void Close_Click(object s, RoutedEventArgs e) => Close();
+    private void Help_Click(object s, RoutedEventArgs e)
+    {
+        HelpPopup.PlacementTarget = (UIElement)s;
+        HelpPopup.IsOpen = !HelpPopup.IsOpen;
+    }
 
     // ════════════════════════════════════════════════════════════
     //  TABS
@@ -143,16 +165,16 @@ public partial class MainWindow : Window
     private async void Fetch_Click(object s, RoutedEventArgs e)
     {
         var url = TxtUrl.Text.Trim();
-        if (string.IsNullOrEmpty(url)) { Warn("Bitte eine URL eingeben."); return; }
-        if (!_backendReady) { Warn("Backend nicht bereit."); return; }
+        if (string.IsNullOrEmpty(url)) { Warn(L("ErrNoUrl")); return; }
+        if (!_backendReady) { Warn(L("ErrNoBackend")); return; }
 
         BtnFetch.IsEnabled = false;
-        SetStatus("Lade Metadaten…", true);
+        SetStatus(L("StatusLoading"), true);
 
         try
         {
             _meta = await _backend.FetchMetadataAsync(url);
-            if (_meta is null) { Warn("Keine Metadaten empfangen."); return; }
+            if (_meta is null) { Warn(L("ErrNoMeta")); return; }
 
             TxtMetaTitle.Text = _meta.Title;
             TxtMetaUploader.Text = $"👤 {_meta.Uploader}";
@@ -163,12 +185,13 @@ public partial class MainWindow : Window
             TxtDescription.Text = _meta.Description;
 
             AnimatePanel(BorderMeta, true);
-            SetStatus("Metadaten geladen", true);
+            AnimatePanel(BorderQuickActions, true);
+            SetStatus(L("StatusMetaLoaded"), true);
         }
         catch (Exception ex)
         {
-            Warn($"Fehler: {ex.Message}");
-            SetStatus("Fehler beim Laden", false);
+            Warn($"{L("ErrPrefix")} {ex.Message}");
+            SetStatus(L("StatusLoadErr"), false);
         }
         finally
         {
@@ -182,14 +205,14 @@ public partial class MainWindow : Window
     private async void Start_Click(object s, RoutedEventArgs e)
     {
         var url = TxtUrl.Text.Trim();
-        if (string.IsNullOrEmpty(url)) { Warn("Bitte eine URL eingeben."); return; }
-        if (!_backendReady) { Warn("Backend nicht bereit."); return; }
+        if (string.IsNullOrEmpty(url)) { Warn(L("ErrNoUrl")); return; }
+        if (!_backendReady) { Warn(L("ErrNoBackend")); return; }
 
         var isUpload = RbUpload.IsChecked == true;
         if (isUpload && string.IsNullOrWhiteSpace(TxtTitle.Text))
-        { Warn("Bitte einen Titel eingeben."); return; }
+        { Warn(L("ErrNoTitle")); return; }
         if (!isUpload && string.IsNullOrWhiteSpace(TxtOutputDir.Text))
-        { Warn("Bitte einen Speicherort wählen."); return; }
+        { Warn(L("ErrNoSavePath")); return; }
 
         var privacy = (CmbPrivacy.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "public";
         var fingerprint = isUpload ? ChkFingerprint.IsChecked == true
@@ -201,11 +224,24 @@ public partial class MainWindow : Window
         BtnStart.IsEnabled = false;
         BtnFetch.IsEnabled = false;
 
+        _lastJobLog = string.Empty;
+        _lastLogEntry = string.Empty;
+        _logViewer?.Close();
+
         _cts = new CancellationTokenSource();
         _progressWin = new ProgressWindow(_cts) { Owner = this };
-        _progressWin.Closed += (_, _) => { _progressWin = null; if (!_cts.IsCancellationRequested) _cts.Cancel(); };
+        _progressWin.Closed += (_, _) =>
+        {
+            _lastJobLog = _progressWin?.LogContent ?? string.Empty;
+            _progressWin = null;
+            BtnMainLog.IsEnabled = !string.IsNullOrEmpty(_lastJobLog);
+            BtnMainLog.Content = "\u25be Log";
+            if (!_cts.IsCancellationRequested) _cts.Cancel();
+        };
+        BtnMainLog.IsEnabled = true;
         _progressWin.Show();
         _progressWin.UpdateProgress(0, "Starte…", "Verbinde mit Backend…");
+        _progressWin.AppendLog("Verbinde mit Backend…");
 
         try
         {
@@ -222,39 +258,45 @@ public partial class MainWindow : Window
                 fingerprintMethod,
                 _cts.Token);
 
+            _progressWin?.AppendLog($"Job gestartet: {jobId}");
+
             await foreach (var status in _backend.StreamJobAsync(jobId, _cts.Token))
             {
-                var detail = status.Status == "completed" ? "🎉 Fertig!"
-                           : status.Status == "error"     ? $"❌ {status.Error}"
+                var detail = status.Status == "completed" ? "Abgeschlossen."
+                           : status.Status == "error"     ? $"Fehler: {status.Error}"
                            : "";
                 _progressWin?.UpdateProgress(status.Progress, status.Message, detail);
+                if (!string.IsNullOrEmpty(status.Message))
+                {
+                    var entry = $"{status.Progress}% \u2013 {status.Message}";
+                    if (entry != _lastLogEntry)
+                    {
+                        _progressWin?.AppendLog(entry);
+                        _lastLogEntry = entry;
+                    }
+                }
 
                 if (status.Status == "completed")
                 {
-                    var resultUrl = status.Result?.GetValueOrDefault("url")?.ToString()
-                                 ?? status.Result?.GetValueOrDefault("file_path")?.ToString()
-                                 ?? "";
-
-                    SetStatus("Erfolgreich abgeschlossen!", true);
+                    _progressWin?.AppendLog("[OK] Abgeschlossen.");
+                    SetStatus(L("StatusCompleted"), true);
                     _progressWin?.MarkDone(true);
-
-                    if (!string.IsNullOrEmpty(resultUrl))
-                        ShowResult(resultUrl);
                     break;
                 }
 
                 if (status.Status == "error")
                 {
-                    SetStatus($"Fehler: {status.Error}", false);
+                    _progressWin?.AppendLog($"[Fehler] {status.Error}");
+                    SetStatus($"{L("StatusErrPrefix")} {status.Error}", false);
                     _progressWin?.MarkDone(false);
                     break;
                 }
             }
         }
-        catch (OperationCanceledException) { SetStatus("Abgebrochen", false); }
+        catch (OperationCanceledException) { SetStatus(L("StatusCancelled"), false); }
         catch (Exception ex)
         {
-            SetStatus($"Fehler: {ex.Message}", false);
+            SetStatus($"{L("StatusErrPrefix")} {ex.Message}", false);
             _progressWin?.MarkDone(false);
         }
         finally
@@ -262,6 +304,111 @@ public partial class MainWindow : Window
             BtnStart.IsEnabled = true;
             BtnFetch.IsEnabled = true;
         }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  LANGUAGE
+    // ════════════════════════════════════════════════════════════
+    private static string L(string key)
+        => Application.Current.Resources[key] as string ?? key;
+
+    private void LangDE_Click(object s, RoutedEventArgs e) => SetLanguage("de");
+    private void LangEN_Click(object s, RoutedEventArgs e) => SetLanguage("en");
+
+    private void SetLanguage(string lang)
+    {
+        if (_currentLang == lang) return;
+        _currentLang = lang;
+
+        BtnLangDE.Foreground = lang == "de"
+            ? (Brush)Application.Current.Resources["Accent"]
+            : (Brush)Application.Current.Resources["TextSec"];
+        BtnLangEN.Foreground = lang == "en"
+            ? (Brush)Application.Current.Resources["Accent"]
+            : (Brush)Application.Current.Resources["TextSec"];
+
+        var dicts = Application.Current.Resources.MergedDictionaries;
+        var old = dicts.FirstOrDefault(d => d.Contains("LangCode"));
+        if (old != null) dicts.Remove(old);
+
+        var src = lang == "en" ? "Assets/Strings.en.xaml" : "Assets/Strings.de.xaml";
+        dicts.Add(new ResourceDictionary
+        {
+            Source = new Uri($"pack://application:,,,/ReelsConverterUI;component/{src}")
+        });
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  SETTINGS
+    // ════════════════════════════════════════════════════════════
+    private void Settings_Click(object s, RoutedEventArgs e)
+    {
+        var win = new SettingsWindow { Owner = this };
+        if (win.ShowDialog() == true)
+            ApplySettings();
+    }
+
+    private void ApplySettings()
+    {
+        var s = SettingsService.Current;
+        if (s.Language != _currentLang) SetLanguage(s.Language);
+        SelectComboByTag(CmbPrivacy, s.DefaultPrivacy);
+        ChkFingerprint.IsChecked = s.DefaultFingerprintEnabled;
+        SelectComboByTag(CmbFingerprintMethod, s.DefaultFingerprintMethod);
+        if (!string.IsNullOrEmpty(s.DefaultOutputDir))
+            TxtOutputDir.Text = s.DefaultOutputDir;
+        ChkFingerprintDl.IsChecked = s.DefaultFingerprintDlEnabled;
+        SelectComboByTag(CmbFingerprintMethodDl, s.DefaultFingerprintDlMethod);
+    }
+
+    private static void SelectComboByTag(ComboBox combo, string tag)
+    {
+        foreach (ComboBoxItem item in combo.Items)
+            if (item.Tag?.ToString() == tag) { combo.SelectedItem = item; return; }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  QUICK ACTIONS
+    // ════════════════════════════════════════════════════════════
+    private void CopyTitle_Click(object s, RoutedEventArgs e)
+    {
+        if (_meta is not null && !string.IsNullOrEmpty(_meta.Title))
+            Clipboard.SetText(_meta.Title);
+    }
+
+    private void CopyUrl_Click(object s, RoutedEventArgs e)
+    {
+        var url = TxtUrl.Text.Trim();
+        if (!string.IsNullOrEmpty(url))
+            Clipboard.SetText(url);
+    }
+
+    private void OpenInBrowser_Click(object s, RoutedEventArgs e)
+    {
+        var url = TxtUrl.Text.Trim();
+        if (!string.IsNullOrEmpty(url))
+            System.Diagnostics.Process.Start(
+                new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+    }
+
+    private void CopyDesc_Click(object s, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(TxtDescription.Text))
+            Clipboard.SetText(TxtDescription.Text);
+    }
+
+    private void CopyTags_Click(object s, RoutedEventArgs e)
+    {
+        if (_meta?.Tags is { Count: > 0 })
+            Clipboard.SetText(string.Join(" ", _meta.Tags.Select(t => $"#{t}")));
+    }
+
+    private void ClearForm_Click(object s, RoutedEventArgs e)
+    {
+        TxtUrl.Text = string.Empty;
+        _meta = null;
+        AnimatePanel(BorderMeta, false);
+        AnimatePanel(BorderQuickActions, false);
     }
 
     // ════════════════════════════════════════════════════════════
@@ -296,7 +443,26 @@ public partial class MainWindow : Window
     private static void Warn(string msg)
         => MessageBox.Show(msg, "ReelsConverter", MessageBoxButton.OK, MessageBoxImage.Warning);
 
-    private static void ShowResult(string result)
-        => MessageBox.Show($"Ergebnis:\n{result}", "Abgeschlossen",
-                           MessageBoxButton.OK, MessageBoxImage.Information);
-}
+    private void MainLog_Click(object s, RoutedEventArgs e)
+    {
+        if (_progressWin != null)
+        {
+            _progressWin.ToggleLog();
+            BtnMainLog.Content = _progressWin.IsLogOpen ? "\u25b4 Log" : "\u25be Log";
+            return;
+        }
+
+        if (string.IsNullOrEmpty(_lastJobLog)) return;
+
+        if (_logViewer != null)
+        {
+            _logViewer.Activate();
+            return;
+        }
+
+        _logViewer = new LogViewerWindow(_lastJobLog) { Owner = this };
+        _logViewer.Closed += (_, _) => _logViewer = null;
+        _logViewer.Show();
+    }
+
+    }

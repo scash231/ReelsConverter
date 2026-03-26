@@ -8,6 +8,11 @@
     <AssemblyName>ReelsConverterUI</AssemblyName>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>app.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="app.ico"/>
+  </ItemGroup>
 
 </Project>

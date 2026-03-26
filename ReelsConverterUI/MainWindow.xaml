@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="ReelsConverter" Width="760" Height="560"
         MinWidth="600" MinHeight="480"
+        Icon="app.ico"
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterScreen">
@@ -70,6 +71,43 @@
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,4,0">
+                        <!-- Help / Workflow -->
+                        <Button x:Name="BtnHelp"
+                                Style="{StaticResource IconBtn}"
+                                Foreground="{StaticResource TextSec}"
+                                Width="30" Height="30" Margin="0,0,2,0"
+                                ToolTip="Workflow"
+                                Click="Help_Click">
+                            <TextBlock Text="?" FontSize="13" FontWeight="Bold"/>
+                        </Button>
+                        <!-- Settings -->
+                        <Button Style="{StaticResource IconBtn}"
+                                Foreground="{StaticResource TextSec}"
+                                Width="30" Height="30" Margin="0,0,2,0"
+                                ToolTip="{DynamicResource TipSettings}"
+                                Click="Settings_Click">
+                            <TextBlock Text="⚙" FontSize="14"/>
+                        </Button>
+                        <!-- Language Toggle -->
+                        <Border VerticalAlignment="Center" Margin="0,0,6,0"
+                                BorderBrush="{StaticResource BorderSub}"
+                                BorderThickness="1" CornerRadius="4">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="BtnLangDE" Content="DE"
+                                        Style="{StaticResource IconBtn}"
+                                        Foreground="{StaticResource Accent}"
+                                        FontSize="10" FontWeight="SemiBold"
+                                        Width="28" Height="22"
+                                        Click="LangDE_Click"/>
+                                <Border Width="1" Background="{StaticResource BorderSub}" Margin="0,5"/>
+                                <Button x:Name="BtnLangEN" Content="EN"
+                                        Style="{StaticResource IconBtn}"
+                                        Foreground="{StaticResource TextSec}"
+                                        FontSize="10" FontWeight="SemiBold"
+                                        Width="28" Height="22"
+                                        Click="LangEN_Click"/>
+                            </StackPanel>
+                        </Border>
                         <Button Style="{StaticResource IconBtn}"
                                 Foreground="{StaticResource TextSec}" Width="30" Height="30"
                                 Click="Minimize_Click">
@@ -81,25 +119,52 @@
                             <TextBlock Text="✕" FontSize="11"/>
                         </Button>
                     </StackPanel>
+                    <Popup x:Name="HelpPopup"
+                           Placement="Bottom"
+                           VerticalOffset="4"
+                           StaysOpen="False"
+                           AllowsTransparency="True"
+                           PopupAnimation="Fade">
+                        <Border Background="{StaticResource BgElevated}"
+                                BorderBrush="{StaticResource BorderSub}"
+                                BorderThickness="1" CornerRadius="6"
+                                Padding="14,12" MinWidth="200">
+                            <StackPanel>
+                                <TextBlock Text="Workflow" FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextSec}" Margin="0,0,0,8"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Text="①" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Accent}" Width="18"/>
+                                    <TextBlock Text="{DynamicResource Step1}" FontSize="11"
+                                               Foreground="{StaticResource TextPrimary}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Text="②" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Accent}" Width="18"/>
+                                    <TextBlock Text="{DynamicResource Step2}" FontSize="11"
+                                               Foreground="{StaticResource TextPrimary}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="③" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Accent}" Width="18"/>
+                                    <TextBlock Text="{DynamicResource Step3}" FontSize="11"
+                                               Foreground="{StaticResource TextPrimary}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
                 </Grid>
             </Border>
 
             <!-- ═══════════ MAIN CONTENT (two-column grid) ═══════════ -->
             <Grid Grid.Row="1" Margin="12,8,12,8">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- ──── Header ──── -->
-                <Border Grid.Row="0" Padding="0,2,0,6">
-                    <TextBlock Text="Instagram · TikTok · YouTube → Shorts"
-                               FontSize="11" Foreground="{StaticResource TextSec}"/>
-                </Border>
-
                 <!-- ──── Two-column layout ──── -->
-                <Grid Grid.Row="1">
+                <Grid Grid.Row="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="12"/>
@@ -107,12 +172,15 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- ═══ LEFT COLUMN: Platform, URL, Metadata ═══ -->
-                    <StackPanel Grid.Column="0">
+                    <ScrollViewer Grid.Column="0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel>
 
                         <!-- TAB BAR -->
                         <Border Style="{StaticResource Card}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Lbl}" Text="PLATTFORM"/>
+                                <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource SectionPlatform}"/>
                                 <StackPanel Orientation="Horizontal">
                                     <RadioButton x:Name="TabInsta" Style="{StaticResource TabBtn}"
                                                  Content="📷 Instagram" GroupName="Platform"
@@ -146,13 +214,13 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="TxtUrl" VerticalAlignment="Center"/>
-                                    <Button Grid.Column="1" ToolTip="Aus Zwischenablage einfügen"
+                                    <Button Grid.Column="1" ToolTip="{DynamicResource TipPaste}"
                                             Style="{StaticResource IconBtn}"
                                             Foreground="{StaticResource TextSec}"
                                             Margin="8,0,0,0" Click="Paste_Click">
                                         <TextBlock Text="📋" FontSize="16"/>
                                     </Button>
-                                    <Button Grid.Column="2" Content="Metadaten"
+                                    <Button Grid.Column="2" Content="{DynamicResource BtnFetch}"
                                             Style="{StaticResource OutlineBtn}"
                                             Margin="4,0,0,0" x:Name="BtnFetch"
                                             Click="Fetch_Click"/>
@@ -203,7 +271,43 @@
                             </Grid>
                         </Border>
 
+                        <!-- QUICK ACTIONS (hidden until fetched) -->
+                        <Border x:Name="BorderQuickActions" Style="{StaticResource Card}"
+                                Visibility="Collapsed" Opacity="0">
+                            <StackPanel>
+                                <TextBlock Style="{StaticResource Lbl}"
+                                           Text="{DynamicResource SectionQuickActions}"/>
+                                <WrapPanel>
+                                    <Button Style="{StaticResource OutlineBtn}"
+                                            Margin="0,0,6,4" Click="CopyTitle_Click"
+                                            Content="{DynamicResource BtnCopyTitle}"
+                                            ToolTip="{DynamicResource TipCopyTitle}"/>
+                                    <Button Style="{StaticResource OutlineBtn}"
+                                            Margin="0,0,6,4" Click="CopyUrl_Click"
+                                            Content="{DynamicResource BtnCopyUrl}"
+                                            ToolTip="{DynamicResource TipCopyUrl}"/>
+                                    <Button Style="{StaticResource OutlineBtn}"
+                                            Margin="0,0,0,4" Click="OpenInBrowser_Click"
+                                            Content="{DynamicResource BtnOpenBrowser}"
+                                            ToolTip="{DynamicResource TipOpenBrowser}"/>
+                                    <Button Style="{StaticResource OutlineBtn}"
+                                            Margin="0,0,6,4" Click="CopyDesc_Click"
+                                            Content="{DynamicResource BtnCopyDesc}"
+                                            ToolTip="{DynamicResource TipCopyDesc}"/>
+                                    <Button Style="{StaticResource OutlineBtn}"
+                                            Margin="0,0,6,4" Click="CopyTags_Click"
+                                            Content="{DynamicResource BtnCopyTags}"
+                                            ToolTip="{DynamicResource TipCopyTags}"/>
+                                    <Button Style="{StaticResource OutlineBtn}"
+                                            Margin="0,0,0,4" Click="ClearForm_Click"
+                                            Content="{DynamicResource BtnClearForm}"
+                                            ToolTip="{DynamicResource TipClearForm}"/>
+                                </WrapPanel>
+                            </StackPanel>
+                        </Border>
+
                     </StackPanel>
+                    </ScrollViewer>
 
                     <!-- ═══ RIGHT COLUMN: Mode, Settings ═══ -->
                     <StackPanel Grid.Column="2">
@@ -211,7 +315,7 @@
                         <!-- MODE SELECTION -->
                         <Border Style="{StaticResource Card}">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Lbl}" Text="AKTION"/>
+                                <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource SectionAction}"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -225,10 +329,10 @@
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="☁" FontSize="16" Margin="0,0,6,0"
                                                            Foreground="{StaticResource Accent}"/>
-                                                <TextBlock Text="YouTube Upload" FontWeight="SemiBold"
+                                                <TextBlock Text="{DynamicResource ModeUploadTitle}" FontWeight="SemiBold"
                                                            FontSize="12"/>
                                             </StackPanel>
-                                            <TextBlock Text="Reel direkt als Short hochladen"
+                                            <TextBlock Text="{DynamicResource ModeUploadDesc}"
                                                        FontSize="10" Foreground="{StaticResource TextSec}"
                                                        Margin="0,3,0,0"/>
                                         </StackPanel>
@@ -240,10 +344,10 @@
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="💾" FontSize="16" Margin="0,0,6,0"
                                                            Foreground="{StaticResource AccentPink}"/>
-                                                <TextBlock Text="Herunterladen" FontWeight="SemiBold"
+                                                <TextBlock Text="{DynamicResource ModeDownloadTitle}" FontWeight="SemiBold"
                                                            FontSize="12"/>
                                             </StackPanel>
-                                            <TextBlock Text="MP4 lokal speichern"
+                                            <TextBlock Text="{DynamicResource ModeDownloadDesc}"
                                                        FontSize="10" Foreground="{StaticResource TextSec}"
                                                        Margin="0,3,0,0"/>
                                         </StackPanel>
@@ -256,8 +360,8 @@
                         <Border x:Name="BorderUpload" Style="{StaticResource Card}"
                                 Visibility="Collapsed" Opacity="0">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Lbl}" Text="YOUTUBE EINSTELLUNGEN"/>
-                                <TextBlock Text="Titel" FontSize="11"
+                                <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource SectionYTSettings}"/>
+                                <TextBlock Text="{DynamicResource LblTitleField}" FontSize="11"
                                            Foreground="{StaticResource TextSec}" Margin="0,0,0,3"/>
                                 <TextBox x:Name="TxtTitle"/>
                                 <Grid Margin="0,8,0,3">
@@ -265,11 +369,11 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Beschreibung" FontSize="11"
+                                    <TextBlock Text="{DynamicResource LblDescField}" FontSize="11"
                                                Foreground="{StaticResource TextSec}"
                                                VerticalAlignment="Center"/>
                                     <Button Grid.Column="1" Style="{StaticResource IconBtn}"
-                                            ToolTip="Beschreibung bearbeiten"
+                                            ToolTip="{DynamicResource TipEditDesc}"
                                             Click="EditDescription_Click">
                                         <TextBlock Text="✏" FontSize="13"
                                                    Foreground="{StaticResource TextSec}"/>
@@ -278,14 +382,14 @@
                                 <TextBox x:Name="TxtDescription" IsReadOnly="True"
                                          TextWrapping="Wrap" Height="44"
                                          VerticalScrollBarVisibility="Auto"
-                                         ToolTip="Klicke ✏ oder Doppelklick zum Bearbeiten"
+                                         ToolTip="{DynamicResource TipDescBox}"
                                          MouseDoubleClick="EditDescription_Click"/>
-                                <TextBlock Text="Sichtbarkeit" FontSize="11"
+                                <TextBlock Text="{DynamicResource LblVisibility}" FontSize="11"
                                            Foreground="{StaticResource TextSec}" Margin="0,8,0,3"/>
                                 <ComboBox x:Name="CmbPrivacy" SelectedIndex="0">
-                                    <ComboBoxItem Content="Öffentlich" Tag="public"/>
-                                    <ComboBoxItem Content="Nicht gelistet" Tag="unlisted"/>
-                                    <ComboBoxItem Content="Privat" Tag="private"/>
+                                    <ComboBoxItem Content="{DynamicResource PrivacyPublic}"   Tag="public"/>
+                                    <ComboBoxItem Content="{DynamicResource PrivacyUnlisted}" Tag="unlisted"/>
+                                    <ComboBoxItem Content="{DynamicResource PrivacyPrivate}"  Tag="private"/>
                                 </ComboBox>
                                 <Grid Margin="0,8,0,0">
                                     <Grid.ColumnDefinitions>
@@ -299,10 +403,10 @@
                                     <ComboBox x:Name="CmbFingerprintMethod" Grid.Column="1"
                                               Margin="8,0,0,0" SelectedIndex="2"
                                               IsEnabled="{Binding IsChecked, ElementName=ChkFingerprint}">
-                                        <ComboBoxItem Content="Nur Metadaten" Tag="metadata"/>
-                                        <ComboBoxItem Content="Leicht"        Tag="light"/>
-                                        <ComboBoxItem Content="Standard"      Tag="standard"/>
-                                        <ComboBoxItem Content="Stark"         Tag="strong"/>
+                                        <ComboBoxItem Content="{DynamicResource FpMetadata}" Tag="metadata"/>
+                                        <ComboBoxItem Content="{DynamicResource FpLight}"    Tag="light"/>
+                                        <ComboBoxItem Content="{DynamicResource FpStandard}" Tag="standard"/>
+                                        <ComboBoxItem Content="{DynamicResource FpStrong}"   Tag="strong"/>
                                     </ComboBox>
                                 </Grid>
                             </StackPanel>
@@ -312,8 +416,8 @@
                         <Border x:Name="BorderDownload" Style="{StaticResource Card}"
                                 Visibility="Collapsed" Opacity="0">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Lbl}" Text="DOWNLOAD EINSTELLUNGEN"/>
-                                <TextBlock Text="Speicherort" FontSize="11"
+                                <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource SectionDLSettings}"/>
+                                <TextBlock Text="{DynamicResource LblSavePath}" FontSize="11"
                                            Foreground="{StaticResource TextSec}" Margin="0,0,0,3"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -323,9 +427,8 @@
                                     <TextBox x:Name="TxtOutputDir" IsReadOnly="True"/>
                                     <Button Grid.Column="1"
                                             Style="{StaticResource OutlineBtn}"
-                                            Margin="8,0,0,0" Click="Browse_Click">
-                                        <TextBlock Text="📂 Durchsuchen"/>
-                                    </Button>
+                                            Content="{DynamicResource BtnBrowse}"
+                                            Margin="8,0,0,0" Click="Browse_Click"/>
                                 </Grid>
                                 <Grid Margin="0,8,0,0">
                                     <Grid.ColumnDefinitions>
@@ -339,10 +442,10 @@
                                     <ComboBox x:Name="CmbFingerprintMethodDl" Grid.Column="1"
                                               Margin="8,0,0,0" SelectedIndex="2"
                                               IsEnabled="{Binding IsChecked, ElementName=ChkFingerprintDl}">
-                                        <ComboBoxItem Content="Nur Metadaten" Tag="metadata"/>
-                                        <ComboBoxItem Content="Leicht"        Tag="light"/>
-                                        <ComboBoxItem Content="Standard"      Tag="standard"/>
-                                        <ComboBoxItem Content="Stark"         Tag="strong"/>
+                                        <ComboBoxItem Content="{DynamicResource FpMetadata}" Tag="metadata"/>
+                                        <ComboBoxItem Content="{DynamicResource FpLight}"    Tag="light"/>
+                                        <ComboBoxItem Content="{DynamicResource FpStandard}" Tag="standard"/>
+                                        <ComboBoxItem Content="{DynamicResource FpStrong}"   Tag="strong"/>
                                     </ComboBox>
                                 </Grid>
                             </StackPanel>
@@ -352,8 +455,8 @@
                 </Grid>
 
                 <!-- START BUTTON -->
-                <Button x:Name="BtnStart" Grid.Row="2" Style="{StaticResource GradBtn}"
-                        Content="Starten" Margin="0,4,0,0"
+                <Button x:Name="BtnStart" Grid.Row="1" Style="{StaticResource GradBtn}"
+                        Content="{DynamicResource BtnStart}" Margin="0,4,0,0"
                         Click="Start_Click"/>
             </Grid>
 
@@ -367,10 +470,17 @@
                                 <SolidColorBrush x:Name="StatusDotColor" Color="#5AAF6E"/>
                             </Ellipse.Fill>
                         </Ellipse>
-                        <TextBlock x:Name="TxtStatusBar" Text="Backend wird gestartet…"
+                        <TextBlock x:Name="TxtStatusBar" Text="{DynamicResource StatusStarting}"
                                    FontSize="10" Foreground="{StaticResource TextSec}"/>
                     </StackPanel>
-                    </Grid>
+                    <Button x:Name="BtnMainLog"
+                            HorizontalAlignment="Right"
+                            Content="▾ Log"
+                            Style="{StaticResource OutlineBtn}"
+                            FontSize="10" Padding="8,3"
+                            IsEnabled="False"
+                            Click="MainLog_Click"/>
+                </Grid>
             </Border>
         </Grid>
     </Border>

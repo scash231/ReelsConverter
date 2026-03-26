@@ -1,7 +1,9 @@
 <Window x:Class="ReelsConverterUI.ProgressWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Fortschritt" Width="420" Height="175"
+        Title="Fortschritt" Width="420"
+        SizeToContent="Height"
+        Icon="app.ico"
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner">
@@ -36,7 +38,8 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="34"/>
-                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
@@ -74,11 +77,41 @@
                            TextTrimming="CharacterEllipsis"/>
             </StackPanel>
 
-            <!-- Cancel / Close button -->
-            <Button x:Name="BtnCancel" Grid.Row="2"
-                    Content="Abbrechen" Style="{StaticResource OutlineBtn}"
-                    HorizontalAlignment="Right" Margin="0,8,16,12"
-                    Click="Cancel_Click"/>
+            <!-- Footer row: countdown + console toggle + button -->
+            <Grid Grid.Row="2" Margin="16,8,16,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtCountdown" FontSize="11"
+                           Foreground="{StaticResource TextSec}"
+                           VerticalAlignment="Center"
+                           Visibility="Collapsed"/>
+                <Button x:Name="BtnToggleLog" Grid.Column="1"
+                        Content="▾ Log" Style="{StaticResource OutlineBtn}"
+                        Margin="0,0,6,0"
+                        Click="ToggleLog_Click"/>
+                <Button x:Name="BtnCancel" Grid.Column="2"
+                        Content="Abbrechen" Style="{StaticResource OutlineBtn}"
+                        Click="Cancel_Click"/>
+            </Grid>
+
+            <!-- Console (toggleable) -->
+            <TextBox x:Name="TxtConsole" Grid.Row="3"
+                     Margin="16,0,16,12"
+                     Background="#0D0D0F"
+                     BorderBrush="{StaticResource BorderSub}" BorderThickness="1"
+                     Foreground="#7A9EC0"
+                     FontFamily="Consolas"
+                     FontSize="10"
+                     IsReadOnly="True"
+                     TextWrapping="Wrap"
+                     MaxHeight="140"
+                     Padding="8,6"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Disabled"
+                     Visibility="Collapsed"/>
         </Grid>
     </Border>
 </Window>

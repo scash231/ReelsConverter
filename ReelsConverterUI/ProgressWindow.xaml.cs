@@ -9,6 +9,11 @@ public partial class ProgressWindow : Window
 {
     private readonly CancellationTokenSource _cts;
     private bool _done;
+    private DispatcherTimer? _countdownTimer;
+    private int _countdownRemaining;
+
+    public bool IsLogOpen => TxtConsole.Visibility == Visibility.Visible;
+    public string LogContent => TxtConsole.Text;
 
     public ProgressWindow(CancellationTokenSource cts)
     {
@@ -43,10 +48,31 @@ public partial class ProgressWindow : Window
 
         if (success)
         {
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
-            timer.Tick += (_, _) => { timer.Stop(); Close(); };
-            timer.Start();
+            _countdownRemaining = 3;
+            TxtCountdown.Text = $"Schließt in {_countdownRemaining} s\u2026";
+            TxtCountdown.Visibility = System.Windows.Visibility.Visible;
+            StartCountdown();
         }
+    }
+
+    private void StartCountdown()
+    {
+        _countdownTimer?.Stop();
+        _countdownTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _countdownTimer.Tick += (_, _) =>
+        {
+            _countdownRemaining--;
+            if (_countdownRemaining <= 0)
+            {
+                _countdownTimer.Stop();
+                Close();
+            }
+            else
+            {
+                TxtCountdown.Text = $"Schließt in {_countdownRemaining} s\u2026";
+            }
+        };
+        _countdownTimer.Start();
     }
 
     private void Cancel_Click(object s, RoutedEventArgs e)
@@ -54,4 +80,29 @@ public partial class ProgressWindow : Window
         if (!_done) _cts.Cancel();
         Close();
     }
+
+    public void AppendLog(string message)
+    {
+        var line = $"[{DateTime.Now:HH:mm:ss}] {message}";
+        TxtConsole.AppendText(TxtConsole.Text.Length == 0 ? line : Environment.NewLine + line);
+        TxtConsole.ScrollToEnd();
+    }
+
+    public void ToggleLog()
+    {
+        var opening = TxtConsole.Visibility != Visibility.Visible;
+        TxtConsole.Visibility = opening ? Visibility.Visible : Visibility.Collapsed;
+        BtnToggleLog.Content = opening ? "\u25b4 Log" : "\u25be Log";
+
+        if (opening)
+        {
+            _countdownTimer?.Stop();
+        }
+        else if (_done && _countdownRemaining > 0)
+        {
+            StartCountdown();
+        }
+    }
+
+    private void ToggleLog_Click(object s, RoutedEventArgs e) => ToggleLog();
 }
