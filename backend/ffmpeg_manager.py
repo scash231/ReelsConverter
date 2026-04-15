@@ -22,7 +22,7 @@ def ensure_ffmpeg() -> None:
     if shutil.which("ffmpeg") and shutil.which("ffprobe"):
         return
 
-    print("Downloading FFmpeg …")
+    print("Downloading FFmpeg ...")
     os.makedirs(local, exist_ok=True)
     zp = os.path.join(local, "_tmp.zip")
     try:

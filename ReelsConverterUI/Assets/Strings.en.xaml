@@ -17,6 +17,7 @@
     <sys:String x:Key="SectionDLSettings">DOWNLOAD SETTINGS</sys:String>
 
     <!-- Buttons -->
+    <sys:String x:Key="LblVideoUrl">VIDEO URL</sys:String>
     <sys:String x:Key="TipPaste">Paste from Clipboard</sys:String>
     <sys:String x:Key="BtnFetch">Metadata</sys:String>
     <sys:String x:Key="BtnCopyTitle">📋 Copy Title</sys:String>
@@ -81,6 +82,8 @@
     <sys:String x:Key="SettingsFpBypass">Enable fingerprint bypass</sys:String>
     <sys:String x:Key="SettingsDownload">DOWNLOAD DEFAULTS</sys:String>
     <sys:String x:Key="SettingsDefaultOutputDir">Default save location</sys:String>
+    <sys:String x:Key="SettingsPerformance">PERFORMANCE</sys:String>
+    <sys:String x:Key="SettingsUseGpu">Use GPU acceleration (NVIDIA NVENC)</sys:String>
     <sys:String x:Key="SettingsBackend">BACKEND</sys:String>
     <sys:String x:Key="SettingsBackendUrl">Backend URL</sys:String>
     <sys:String x:Key="SettingsBackendTimeout">Startup timeout (seconds)</sys:String>
@@ -88,11 +91,117 @@
     <sys:String x:Key="BtnCancelSettings">Cancel</sys:String>
 
     <!-- Additional quick actions -->
-    <sys:String x:Key="BtnCopyDesc">Copy Description</sys:String>
-    <sys:String x:Key="BtnCopyTags">Copy Tags</sys:String>
-    <sys:String x:Key="BtnClearForm">Reset Form</sys:String>
+    <sys:String x:Key="BtnCopyDesc">📝 Description</sys:String>
+    <sys:String x:Key="BtnCopyTags">🏷 Tags</sys:String>
+    <sys:String x:Key="BtnClearForm">🔄 Reset</sys:String>
     <sys:String x:Key="TipCopyDesc">Copy description to clipboard</sys:String>
     <sys:String x:Key="TipCopyTags">Copy tags as plain text</sys:String>
     <sys:String x:Key="TipClearForm">Clear input and metadata</sys:String>
+    <sys:String x:Key="BtnCopyAll">📋 Copy All</sys:String>
+    <sys:String x:Key="TipCopyAll">Copy title, description and tags</sys:String>
+    <sys:String x:Key="BtnSaveThumbnail">🖼 Thumbnail</sys:String>
+    <sys:String x:Key="TipSaveThumbnail">Save thumbnail image</sys:String>
+    <sys:String x:Key="SaveThumbnailTitle">Save Thumbnail</sys:String>
+
+    <!-- Auto-detect -->
+    <sys:String x:Key="AutoDetectHint">Auto-detected</sys:String>
+    <sys:String x:Key="PlatformOther">Other platform</sys:String>
+
+    <!-- Dev Console -->
+    <sys:String x:Key="DevConsoleTitle">DEV CONSOLE</sys:String>
+    <sys:String x:Key="DevConsoleClear">Clear console</sys:String>
+    <sys:String x:Key="DevConsoleDetach">Detach console</sys:String>
+    <sys:String x:Key="DevConsoleReattach">Reattach console</sys:String>
+    <sys:String x:Key="DevConsoleMinimize">Minimize</sys:String>
+    <sys:String x:Key="DevConsoleCollapse">Collapse / Expand</sys:String>
+    <sys:String x:Key="DevConsoleHelpTip">Show available commands</sys:String>
+    <sys:String x:Key="DevConsoleHelpTitle">CONSOLE COMMANDS</sys:String>
+    <sys:String x:Key="CmdHelpDesc">Show available commands</sys:String>
+    <sys:String x:Key="CmdClearDesc">Clear the console output</sys:String>
+    <sys:String x:Key="CmdStatusDesc">Show backend connection status</sys:String>
+    <sys:String x:Key="CmdInfoDesc">Show app version and settings</sys:String>
+    <sys:String x:Key="CmdFallbackDesc">Any other input is sent directly to the backend process.</sys:String>
+    <sys:String x:Key="SettingsDevConsole">Show developer console</sys:String>
+    <sys:String x:Key="SettingsDeveloper">DEVELOPER</sys:String>
+
+    <!-- Progress window -->
+    <sys:String x:Key="BtnOpenFolder">📂 Open Folder</sys:String>
+    <sys:String x:Key="BtnOpenFileLocation">Open File Location</sys:String>
+
+    <!-- Theme Designer -->
+    <sys:String x:Key="DesignerTitle">Theme Designer</sys:String>
+    <sys:String x:Key="TipDesigner">Customize theme</sys:String>
+    <sys:String x:Key="DesignerPresets">PRESETS</sys:String>
+    <sys:String x:Key="DesignerBackgrounds">BACKGROUNDS</sys:String>
+    <sys:String x:Key="DesignerBorders">BORDERS</sys:String>
+    <sys:String x:Key="DesignerAccent">ACCENT COLORS</sys:String>
+    <sys:String x:Key="DesignerText">TEXT</sys:String>
+    <sys:String x:Key="DesignerStatus">STATUS</sys:String>
+    <sys:String x:Key="DesignerReset">Default</sys:String>
+
+    <!-- Settings tabs -->
+    <sys:String x:Key="SettingsTabGeneral">General</sys:String>
+    <sys:String x:Key="SettingsTabUpload">Upload</sys:String>
+    <sys:String x:Key="SettingsTabDownload">Download</sys:String>
+    <sys:String x:Key="SettingsTabAdvanced">Advanced</sys:String>
+    <sys:String x:Key="SettingsAppearance">APPEARANCE</sys:String>
+    <sys:String x:Key="SettingsBehavior">BEHAVIOR</sys:String>
+    <sys:String x:Key="SettingsAlwaysOnTop">Always on top</sys:String>
+    <sys:String x:Key="SettingsAutoFetch">Auto-fetch metadata on paste</sys:String>
+    <sys:String x:Key="SettingsNotifyComplete">Notify on completion</sys:String>
+    <sys:String x:Key="SettingsYoutubeDefaults">YOUTUBE DEFAULTS</sys:String>
+    <sys:String x:Key="SettingsFingerprintBypass">FINGERPRINT BYPASS</sys:String>
+    <sys:String x:Key="SettingsFpEnable">Enable</sys:String>
+    <sys:String x:Key="SettingsFpMethod">Method</sys:String>
+    <sys:String x:Key="SettingsSaveLocation">SAVE LOCATION</sys:String>
+    <sys:String x:Key="SettingsQualitySection">QUALITY</sys:String>
+    <sys:String x:Key="SettingsVideoQuality">Video quality</sys:String>
+    <sys:String x:Key="QualityBest">Best</sys:String>
+    <sys:String x:Key="SettingsMaxJobs">Max concurrent jobs</sys:String>
+    <sys:String x:Key="SettingsResetAll">Reset all settings</sys:String>
+    <sys:String x:Key="SettingsResetConfirm">Reset all settings to defaults?</sys:String>
+
+    <!-- URL & Download fields -->
+    <sys:String x:Key="UrlPlaceholder">Paste or enter a video URL…</sys:String>
+    <sys:String x:Key="LblDlTitle">File Name</sys:String>
+    <sys:String x:Key="DlTitlePlaceholder">Use original title…</sys:String>
+    <sys:String x:Key="LblQuality">Quality</sys:String>
+    <sys:String x:Key="QualityAudio">Audio Only</sys:String>
+
+    <!-- Video Editor -->
+    <sys:String x:Key="EditorTitle">Video Editor</sys:String>
+    <sys:String x:Key="TipEditor">Open Video Editor</sys:String>
+    <sys:String x:Key="EditorNoVideo">No video loaded</sys:String>
+    <sys:String x:Key="EditorFileSection">FILE</sys:String>
+    <sys:String x:Key="EditorNoFileLoaded">No file loaded</sys:String>
+    <sys:String x:Key="EditorBrowse">📂 Open Video</sys:String>
+    <sys:String x:Key="EditorBrowseTitle">Select a video file</sys:String>
+    <sys:String x:Key="EditorTrimSection">TRIM</sys:String>
+    <sys:String x:Key="EditorTrimStart">Start</sys:String>
+    <sys:String x:Key="EditorTrimEnd">End</sys:String>
+    <sys:String x:Key="EditorMarkStart">▶ Set Start</sys:String>
+    <sys:String x:Key="EditorMarkEnd">⏹ Set End</sys:String>
+    <sys:String x:Key="EditorResetTrim">↺ Reset</sys:String>
+    <sys:String x:Key="EditorTransformSection">TRANSFORM</sys:String>
+    <sys:String x:Key="EditorRotateCW">↻ Rotate Right</sys:String>
+    <sys:String x:Key="EditorRotateCCW">↺ Rotate Left</sys:String>
+    <sys:String x:Key="EditorFlipH">⇔ Flip</sys:String>
+    <sys:String x:Key="EditorMuteAudio">Remove audio</sys:String>
+    <sys:String x:Key="EditorExportSection">EXPORT</sys:String>
+    <sys:String x:Key="EditorExport">✂ Export</sys:String>
+    <sys:String x:Key="EditorExportTitle">Export video</sys:String>
+    <sys:String x:Key="EditorExporting">Exporting…</sys:String>
+    <sys:String x:Key="EditorExportDone">Video exported successfully!</sys:String>
+
+    <!-- Subtitles -->
+    <sys:String x:Key="EditorSubtitleSection">SUBTITLES</sys:String>
+    <sys:String x:Key="EditorSubModel">Model</sys:String>
+    <sys:String x:Key="EditorSubLang">Language</sys:String>
+    <sys:String x:Key="EditorGenSubs">🎤 Generate Subtitles</sys:String>
+    <sys:String x:Key="EditorGenSubsRunning">Generating…</sys:String>
+    <sys:String x:Key="EditorBurnSubs">Burn subtitles into video</sys:String>
+    <sys:String x:Key="EditorSubStatusGenerating">Running speech recognition…</sys:String>
+    <sys:String x:Key="EditorSubStatusDone">Subtitles generated ✓</sys:String>
+    <sys:String x:Key="EditorSubStatusEmpty">No speech detected.</sys:String>
 
 </ResourceDictionary>

@@ -13,23 +13,24 @@
         <Storyboard x:Key="FadeInWindow">
             <DoubleAnimation Storyboard.TargetName="RootBorder"
                              Storyboard.TargetProperty="Opacity"
-                             From="0" To="1" Duration="0:0:0.45">
+                             From="0" To="1" Duration="0:0:0.28">
                 <DoubleAnimation.EasingFunction>
-                    <CubicEase EasingMode="EaseOut"/>
+                    <ExponentialEase EasingMode="EaseOut" Exponent="4"/>
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="WindowScale"
                              Storyboard.TargetProperty="ScaleX"
-                             From="0.96" To="1" Duration="0:0:0.45">
+                             From="0.88" To="1" Duration="0:0:0.5">
                 <DoubleAnimation.EasingFunction>
-                    <CubicEase EasingMode="EaseOut"/>
+                    <ElasticEase EasingMode="EaseOut" Oscillations="1" Springiness="8"/>
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
             <DoubleAnimation Storyboard.TargetName="WindowScale"
                              Storyboard.TargetProperty="ScaleY"
-                             From="0.96" To="1" Duration="0:0:0.45">
+                             From="0.85" To="1" Duration="0:0:0.52"
+                             BeginTime="0:0:0.035">
                 <DoubleAnimation.EasingFunction>
-                    <CubicEase EasingMode="EaseOut"/>
+                    <ElasticEase EasingMode="EaseOut" Oscillations="1" Springiness="8"/>
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
         </Storyboard>
@@ -42,9 +43,9 @@
     </Window.Triggers>
 
     <!-- ═══════════════════ ROOT BORDER ═══════════════════ -->
-    <Border x:Name="RootBorder" CornerRadius="8"
+    <Border x:Name="RootBorder" CornerRadius="16"
             Background="{StaticResource BgDeep}"
-            BorderBrush="{StaticResource BorderSub}" BorderThickness="1"
+            BorderBrush="{StaticResource BorderSub}" BorderThickness="0.5"
             Opacity="0" RenderTransformOrigin="0.5,0.5">
         <Border.RenderTransform>
             <ScaleTransform x:Name="WindowScale"/>
@@ -52,20 +53,21 @@
 
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="34"/>   <!-- Title bar -->
+                <RowDefinition Height="36"/>   <!-- Title bar -->
                 <RowDefinition Height="*"/>    <!-- Content -->
-                <RowDefinition Height="28"/>   <!-- Status bar -->
+                <RowDefinition Height="Auto"/> <!-- Dev Console -->
+                <RowDefinition Height="30"/>   <!-- Status bar -->
             </Grid.RowDefinitions>
 
             <!-- ═══════════ TITLE BAR ═══════════ -->
-            <Border Grid.Row="0" Background="#141416"
-                    CornerRadius="8,8,0,0"
+            <Border Grid.Row="0" Background="{StaticResource BgDeep}"
+                    CornerRadius="16,16,0,0"
                     MouseLeftButtonDown="TitleBar_Drag">
                 <Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
-                        <TextBlock Text="ReelsConverter" FontWeight="SemiBold"
+                        <TextBlock Text="VideoConverter" FontWeight="SemiBold"
                                    FontSize="12" Foreground="{StaticResource TextPrimary}"/>
-                        <TextBlock Text=" v2.0" FontSize="9"
+                        <TextBlock Text=" v3" FontSize="9"
                                    Foreground="{StaticResource TextSec}"
                                    VerticalAlignment="Center" Margin="4,1,0,0"/>
                     </StackPanel>
@@ -80,6 +82,22 @@
                                 Click="Help_Click">
                             <TextBlock Text="?" FontSize="13" FontWeight="Bold"/>
                         </Button>
+                        <!-- Theme Designer -->
+                        <Button Style="{StaticResource IconBtn}"
+                                Foreground="{StaticResource TextSec}"
+                                Width="30" Height="30" Margin="0,0,2,0"
+                                ToolTip="{DynamicResource TipDesigner}"
+                                Click="Designer_Click">
+                            <TextBlock Text="🎨" FontSize="12"/>
+                        </Button>
+                        <!-- Video Editor -->
+                        <Button Style="{StaticResource IconBtn}"
+                                Foreground="{StaticResource TextSec}"
+                                Width="30" Height="30" Margin="0,0,2,0"
+                                ToolTip="{DynamicResource TipEditor}"
+                                Click="Editor_Click">
+                            <TextBlock Text="✂" FontSize="12"/>
+                        </Button>
                         <!-- Settings -->
                         <Button Style="{StaticResource IconBtn}"
                                 Foreground="{StaticResource TextSec}"
@@ -91,7 +109,7 @@
                         <!-- Language Toggle -->
                         <Border VerticalAlignment="Center" Margin="0,0,6,0"
                                 BorderBrush="{StaticResource BorderSub}"
-                                BorderThickness="1" CornerRadius="4">
+                                BorderThickness="1" CornerRadius="8">
                             <StackPanel Orientation="Horizontal">
                                 <Button x:Name="BtnLangDE" Content="DE"
                                         Style="{StaticResource IconBtn}"
@@ -124,11 +142,19 @@
                            VerticalOffset="4"
                            StaysOpen="False"
                            AllowsTransparency="True"
-                           PopupAnimation="Fade">
-                        <Border Background="{StaticResource BgElevated}"
-                                BorderBrush="{StaticResource BorderSub}"
-                                BorderThickness="1" CornerRadius="6"
-                                Padding="14,12" MinWidth="200">
+                           PopupAnimation="None">
+                        <Border x:Name="HelpPopupBorder"
+                                Background="#A8202024"
+                                BorderBrush="#30FFFFFF" BorderThickness="0.5"
+                                CornerRadius="12"
+                                Padding="14,12" MinWidth="200"
+                                Opacity="0" RenderTransformOrigin="0.5,0">
+                            <Border.RenderTransform>
+                                <TransformGroup>
+                                    <ScaleTransform ScaleX="0.96" ScaleY="0.96"/>
+                                    <TranslateTransform Y="-4"/>
+                                </TransformGroup>
+                            </Border.RenderTransform>
                             <StackPanel>
                                 <TextBlock Text="Workflow" FontSize="10" FontWeight="SemiBold"
                                            Foreground="{StaticResource TextSec}" Margin="0,0,0,8"/>
@@ -156,212 +182,201 @@
                 </Grid>
             </Border>
 
-            <!-- ═══════════ MAIN CONTENT (two-column grid) ═══════════ -->
-            <Grid Grid.Row="1" Margin="12,8,12,8">
+            <!-- ═══════════ MAIN CONTENT ═══════════ -->
+            <Grid Grid.Row="1" Margin="14,6,14,6">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
+                <!-- ──── URL BAR (full-width) ──── -->
+				<Grid Grid.Row="0" Margin="0,0,0,8">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="*"/>
+						<ColumnDefinition Width="Auto"/>
+						<ColumnDefinition Width="Auto"/>
+					</Grid.ColumnDefinitions>
+					<TextBox x:Name="TxtUrl" VerticalAlignment="Center"
+					Tag="{DynamicResource UrlPlaceholder}"
+					TextChanged="TxtUrl_TextChanged"/>
+					<Button Grid.Column="1" ToolTip="{DynamicResource TipPaste}"
+					Style="{StaticResource IconBtn}"
+					Foreground="{StaticResource TextSec}"
+					Margin="6,0,0,0" Click="Paste_Click">
+						<TextBlock Text="📋" FontSize="14"/>
+					</Button>
+					<Button Grid.Column="2" Content="{DynamicResource BtnFetch}"
+					Style="{StaticResource OutlineBtn}"
+					Margin="4,0,0,0" x:Name="BtnFetch"
+					Click="Fetch_Click"/>
+				</Grid>
+				
+				<!-- ──── MODE TOGGLE (iOS 26 segmented control) ──── -->
+                <Border x:Name="SegmentTrack" Grid.Row="1" CornerRadius="50" Padding="3"
+                        Background="{StaticResource BgCard}"
+                        BorderBrush="#18FFFFFF" BorderThickness="0.5"
+                        Margin="0,0,0,8" Cursor="Hand"
+                        PreviewMouseLeftButtonDown="Segment_PreviewMouseDown"
+                        PreviewMouseMove="Segment_PreviewMouseMove"
+                        PreviewMouseLeftButtonUp="Segment_PreviewMouseUp">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <!-- Animated pill indicator -->
+                        <Border x:Name="SegmentIndicator" Grid.Column="0"
+                                CornerRadius="50" Background="#2A2A30"
+                                BorderBrush="#30FFFFFF" BorderThickness="1"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <TransformGroup>
+                                    <ScaleTransform x:Name="SegmentScale"/>
+                                    <TranslateTransform x:Name="SegmentTranslateX"/>
+                                </TransformGroup>
+                            </Border.RenderTransform>
+                        </Border>
+                        <RadioButton x:Name="RbUpload" Style="{StaticResource SegmentedBtn}"
+                                     GroupName="Mode" IsChecked="True"
+                                     Checked="Mode_Changed">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="☁" FontSize="13" Margin="0,0,6,0"/>
+                                <TextBlock Text="{DynamicResource ModeUploadTitle}"
+                                           FontWeight="SemiBold" FontSize="12"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton Grid.Column="1" x:Name="RbDownload"
+                                     Style="{StaticResource SegmentedBtn}"
+                                     GroupName="Mode" Checked="Mode_Changed">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="💾" FontSize="13" Margin="0,0,6,0"/>
+                                <TextBlock Text="{DynamicResource ModeDownloadTitle}"
+                                           FontWeight="SemiBold" FontSize="12"/>
+                            </StackPanel>
+                        </RadioButton>
+                    </Grid>
+                </Border>
+
                 <!-- ──── Two-column layout ──── -->
-                <Grid Grid.Row="0">
+                <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="10"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- ═══ LEFT COLUMN: Platform, URL, Metadata ═══ -->
-                    <ScrollViewer Grid.Column="0"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel>
-
-                        <!-- TAB BAR -->
-                        <Border Style="{StaticResource Card}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource SectionPlatform}"/>
-                                <StackPanel Orientation="Horizontal">
-                                    <RadioButton x:Name="TabInsta" Style="{StaticResource TabBtn}"
-                                                 Content="📷 Instagram" GroupName="Platform"
-                                                 IsChecked="True" Checked="Tab_Changed"/>
-                                    <RadioButton x:Name="TabTikTok" Style="{StaticResource TabBtn}"
-                                                 Content="🎵 TikTok" GroupName="Platform"
-                                                 Checked="Tab_Changed"/>
-                                    <RadioButton x:Name="TabYouTube" Style="{StaticResource TabBtn}"
-                                                 Content="▶ YouTube" GroupName="Platform"
-                                                 Checked="Tab_Changed"/>
-                                </StackPanel>
-                                <Border x:Name="TabIndicator" Height="2" CornerRadius="1" Margin="0,6,0,0"
-                                        HorizontalAlignment="Left" Width="80"
-                                        Background="{StaticResource Accent}">
-                                    <Border.RenderTransform>
-                                        <TranslateTransform x:Name="TabIndicatorTranslate"/>
-                                    </Border.RenderTransform>
-                                </Border>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- URL INPUT -->
-                        <Border Style="{StaticResource Card}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource Lbl}" x:Name="LblUrl"
-                                           Text="INSTAGRAM REEL URL"/>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="TxtUrl" VerticalAlignment="Center"/>
-                                    <Button Grid.Column="1" ToolTip="{DynamicResource TipPaste}"
-                                            Style="{StaticResource IconBtn}"
-                                            Foreground="{StaticResource TextSec}"
-                                            Margin="8,0,0,0" Click="Paste_Click">
-                                        <TextBlock Text="📋" FontSize="16"/>
-                                    </Button>
-                                    <Button Grid.Column="2" Content="{DynamicResource BtnFetch}"
-                                            Style="{StaticResource OutlineBtn}"
-                                            Margin="4,0,0,0" x:Name="BtnFetch"
-                                            Click="Fetch_Click"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- METADATA PREVIEW (hidden until fetched) -->
+                    <!-- ═══ LEFT: Preview ═══ -->
+                    <Grid Grid.Column="0">
                         <Border x:Name="BorderMeta" Style="{StaticResource Card}"
-                                Visibility="Collapsed" Opacity="0">
+                                Visibility="Collapsed" Opacity="0" Padding="0"
+                                ClipToBounds="True" Margin="0">
                             <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Border Width="56" Height="56" CornerRadius="6"
-                                        Background="{StaticResource BgElevated}" Margin="0,0,14,0">
-                                    <TextBlock Text="🎥" FontSize="28"
-                                               HorizontalAlignment="Center"
-                                               VerticalAlignment="Center"/>
-                                </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock x:Name="TxtMetaTitle" FontWeight="SemiBold"
-                                               FontSize="12" Foreground="{StaticResource TextPrimary}"
-                                               TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock x:Name="TxtMetaUploader" FontSize="12"
-                                               Foreground="{StaticResource TextSec}" Margin="0,3,0,0"/>
-                                    <TextBlock x:Name="TxtMetaDuration" FontSize="11"
-                                               Foreground="{StaticResource TextSec}" Margin="0,2,0,0"/>
-                                    <ItemsControl x:Name="TagsList" Margin="0,6,0,0">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <WrapPanel/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border CornerRadius="4" Padding="6,2"
-                                                        Margin="0,0,4,4"
-                                                        Background="{StaticResource BgElevated}">
-                                                    <TextBlock Text="{Binding}" FontSize="10"
-                                                               Foreground="{StaticResource Accent}"/>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0">
+                                    <!-- Thumbnail -->
+                                    <Border x:Name="ThumbBgBorder" CornerRadius="16,16,0,0"
+                                            Background="{StaticResource BgElevated}"
+                                            ClipToBounds="True" MaxHeight="150">
+                                        <Grid>
+                                            <TextBlock x:Name="TxtMetaThumbFallback" Text="🎥"
+                                                       FontSize="36" HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"/>
+                                            <Image x:Name="ImgThumbnail" Stretch="UniformToFill"
+                                                   VerticalAlignment="Center"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            <!-- 10% darken overlay -->
+                                            <Border Background="#1A000000"/>
+                                        </Grid>
+                                    </Border>
+                                    <!-- Info -->
+                                    <StackPanel Margin="12,8,12,4">
+                                        <TextBlock x:Name="TxtMetaTitle" FontWeight="SemiBold"
+                                                   FontSize="11.5"
+                                                   Foreground="{StaticResource TextPrimary}"
+                                                   TextWrapping="Wrap" MaxHeight="32"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                            <TextBlock x:Name="TxtMetaUploader" FontSize="10"
+                                                       Foreground="{StaticResource TextSec}"/>
+                                            <TextBlock x:Name="TxtMetaDuration" FontSize="10"
+                                                       Foreground="{StaticResource TextSec}"
+                                                       Margin="8,0,0,0"/>
+                                        </StackPanel>
+                                        <ItemsControl x:Name="TagsList" Margin="0,5,0,0">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border CornerRadius="7" Padding="6,2"
+                                                            Margin="0,0,3,3"
+                                                            Background="{StaticResource BgElevated}">
+                                                        <TextBlock Text="{Binding}" FontSize="9"
+                                                                   Foreground="{StaticResource Accent}"/>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
                                 </StackPanel>
+
+                                <!-- Quick actions (integrated card footer) -->
+                                <Border Grid.Row="1"
+                                        BorderBrush="{StaticResource BorderSub}"
+                                        BorderThickness="0,0.5,0,0" Padding="8,5">
+                                    <DockPanel>
+                                        <Button Style="{StaticResource IconBtn}" DockPanel.Dock="Right"
+                                                Click="ClearForm_Click" Padding="4,3"
+                                                ToolTip="{DynamicResource TipClearForm}">
+                                            <TextBlock Text="✕" FontSize="10"
+                                                       Foreground="{StaticResource TextSec}"/>
+                                        </Button>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Style="{StaticResource IconBtn}" Padding="4,3"
+                                                    Click="CopyTitle_Click" ToolTip="Copy title">
+                                                <TextBlock Text="📝" FontSize="12"/>
+                                            </Button>
+                                            <Button Style="{StaticResource IconBtn}" Padding="4,3"
+                                                    Margin="1,0,0,0"
+                                                    Click="CopyUrl_Click" ToolTip="Copy URL">
+                                                <TextBlock Text="🔗" FontSize="12"/>
+                                            </Button>
+                                            <Button Style="{StaticResource IconBtn}" Padding="4,3"
+                                                    Margin="1,0,0,0"
+                                                    Click="OpenInBrowser_Click"
+                                                    ToolTip="Open in browser">
+                                                <TextBlock Text="🌐" FontSize="12"/>
+                                            </Button>
+                                            <Button Style="{StaticResource IconBtn}" Padding="4,3"
+                                                    Margin="1,0,0,0"
+                                                    Click="SaveThumbnail_Click"
+                                                    ToolTip="Save thumbnail">
+                                                <TextBlock Text="💾" FontSize="12"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </DockPanel>
+                                </Border>
                             </Grid>
                         </Border>
+                    </Grid>
 
-                        <!-- QUICK ACTIONS (hidden until fetched) -->
-                        <Border x:Name="BorderQuickActions" Style="{StaticResource Card}"
-                                Visibility="Collapsed" Opacity="0">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource Lbl}"
-                                           Text="{DynamicResource SectionQuickActions}"/>
-                                <WrapPanel>
-                                    <Button Style="{StaticResource OutlineBtn}"
-                                            Margin="0,0,6,4" Click="CopyTitle_Click"
-                                            Content="{DynamicResource BtnCopyTitle}"
-                                            ToolTip="{DynamicResource TipCopyTitle}"/>
-                                    <Button Style="{StaticResource OutlineBtn}"
-                                            Margin="0,0,6,4" Click="CopyUrl_Click"
-                                            Content="{DynamicResource BtnCopyUrl}"
-                                            ToolTip="{DynamicResource TipCopyUrl}"/>
-                                    <Button Style="{StaticResource OutlineBtn}"
-                                            Margin="0,0,0,4" Click="OpenInBrowser_Click"
-                                            Content="{DynamicResource BtnOpenBrowser}"
-                                            ToolTip="{DynamicResource TipOpenBrowser}"/>
-                                    <Button Style="{StaticResource OutlineBtn}"
-                                            Margin="0,0,6,4" Click="CopyDesc_Click"
-                                            Content="{DynamicResource BtnCopyDesc}"
-                                            ToolTip="{DynamicResource TipCopyDesc}"/>
-                                    <Button Style="{StaticResource OutlineBtn}"
-                                            Margin="0,0,6,4" Click="CopyTags_Click"
-                                            Content="{DynamicResource BtnCopyTags}"
-                                            ToolTip="{DynamicResource TipCopyTags}"/>
-                                    <Button Style="{StaticResource OutlineBtn}"
-                                            Margin="0,0,0,4" Click="ClearForm_Click"
-                                            Content="{DynamicResource BtnClearForm}"
-                                            ToolTip="{DynamicResource TipClearForm}"/>
-                                </WrapPanel>
-                            </StackPanel>
-                        </Border>
-
-                    </StackPanel>
-                    </ScrollViewer>
-
-                    <!-- ═══ RIGHT COLUMN: Mode, Settings ═══ -->
+                    <!-- ═══ RIGHT: Settings ═══ -->
                     <StackPanel Grid.Column="2">
-
-                        <!-- MODE SELECTION -->
-                        <Border Style="{StaticResource Card}">
-                            <StackPanel>
-                                <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource SectionAction}"/>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <RadioButton x:Name="RbUpload" Style="{StaticResource ModeCard}"
-                                                 GroupName="Mode" IsChecked="True"
-                                                 Checked="Mode_Changed">
-                                        <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="☁" FontSize="16" Margin="0,0,6,0"
-                                                           Foreground="{StaticResource Accent}"/>
-                                                <TextBlock Text="{DynamicResource ModeUploadTitle}" FontWeight="SemiBold"
-                                                           FontSize="12"/>
-                                            </StackPanel>
-                                            <TextBlock Text="{DynamicResource ModeUploadDesc}"
-                                                       FontSize="10" Foreground="{StaticResource TextSec}"
-                                                       Margin="0,3,0,0"/>
-                                        </StackPanel>
-                                    </RadioButton>
-                                    <RadioButton Grid.Column="2" x:Name="RbDownload"
-                                                 Style="{StaticResource ModeCard}"
-                                                 GroupName="Mode" Checked="Mode_Changed">
-                                        <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="💾" FontSize="16" Margin="0,0,6,0"
-                                                           Foreground="{StaticResource AccentPink}"/>
-                                                <TextBlock Text="{DynamicResource ModeDownloadTitle}" FontWeight="SemiBold"
-                                                           FontSize="12"/>
-                                            </StackPanel>
-                                            <TextBlock Text="{DynamicResource ModeDownloadDesc}"
-                                                       FontSize="10" Foreground="{StaticResource TextSec}"
-                                                       Margin="0,3,0,0"/>
-                                        </StackPanel>
-                                    </RadioButton>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
 
                         <!-- UPLOAD SETTINGS -->
                         <Border x:Name="BorderUpload" Style="{StaticResource Card}"
+                                Background="#D9202024"
                                 Visibility="Collapsed" Opacity="0">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource SectionYTSettings}"/>
-                                <TextBlock Text="{DynamicResource LblTitleField}" FontSize="11"
+                                <TextBlock Text="{DynamicResource LblTitleField}" FontSize="10"
                                            Foreground="{StaticResource TextSec}" Margin="0,0,0,3"/>
                                 <TextBox x:Name="TxtTitle"/>
                                 <Grid Margin="0,8,0,3">
@@ -369,22 +384,22 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{DynamicResource LblDescField}" FontSize="11"
+                                    <TextBlock Text="{DynamicResource LblDescField}" FontSize="10"
                                                Foreground="{StaticResource TextSec}"
                                                VerticalAlignment="Center"/>
                                     <Button Grid.Column="1" Style="{StaticResource IconBtn}"
                                             ToolTip="{DynamicResource TipEditDesc}"
                                             Click="EditDescription_Click">
-                                        <TextBlock Text="✏" FontSize="13"
+                                        <TextBlock Text="✏" FontSize="12"
                                                    Foreground="{StaticResource TextSec}"/>
                                     </Button>
                                 </Grid>
                                 <TextBox x:Name="TxtDescription" IsReadOnly="True"
-                                         TextWrapping="Wrap" Height="44"
+                                         TextWrapping="Wrap" Height="56"
                                          VerticalScrollBarVisibility="Auto"
                                          ToolTip="{DynamicResource TipDescBox}"
                                          MouseDoubleClick="EditDescription_Click"/>
-                                <TextBlock Text="{DynamicResource LblVisibility}" FontSize="11"
+                                <TextBlock Text="{DynamicResource LblVisibility}" FontSize="10"
                                            Foreground="{StaticResource TextSec}" Margin="0,8,0,3"/>
                                 <ComboBox x:Name="CmbPrivacy" SelectedIndex="0">
                                     <ComboBoxItem Content="{DynamicResource PrivacyPublic}"   Tag="public"/>
@@ -398,7 +413,7 @@
                                     </Grid.ColumnDefinitions>
                                     <CheckBox x:Name="ChkFingerprint" IsChecked="True"
                                               Foreground="{StaticResource TextSec}"
-                                              Content="Fingerprint-Bypass" FontSize="11"
+                                              Content="Fingerprint" FontSize="10"
                                               VerticalAlignment="Center"/>
                                     <ComboBox x:Name="CmbFingerprintMethod" Grid.Column="1"
                                               Margin="8,0,0,0" SelectedIndex="2"
@@ -414,10 +429,24 @@
 
                         <!-- DOWNLOAD SETTINGS -->
                         <Border x:Name="BorderDownload" Style="{StaticResource Card}"
+                                Background="#D9202024"
                                 Visibility="Collapsed" Opacity="0">
                             <StackPanel>
-                                <TextBlock Style="{StaticResource Lbl}" Text="{DynamicResource SectionDLSettings}"/>
-                                <TextBlock Text="{DynamicResource LblSavePath}" FontSize="11"
+                                <TextBlock Text="{DynamicResource LblDlTitle}" FontSize="10"
+                                           Foreground="{StaticResource TextSec}" Margin="0,0,0,3"/>
+                                <TextBox x:Name="TxtTitleDl"
+                                         Tag="{DynamicResource DlTitlePlaceholder}"/>
+                                <TextBlock Text="{DynamicResource LblQuality}" FontSize="10"
+                                           Foreground="{StaticResource TextSec}" Margin="0,8,0,3"/>
+                                <ComboBox x:Name="CmbQuality" SelectedIndex="0">
+                                    <ComboBoxItem Content="{DynamicResource QualityBest}" Tag="best"/>
+                                    <ComboBoxItem Content="1080p" Tag="1080"/>
+                                    <ComboBoxItem Content="720p" Tag="720"/>
+                                    <ComboBoxItem Content="480p" Tag="480"/>
+                                    <ComboBoxItem Content="360p" Tag="360"/>
+                                    <ComboBoxItem Content="{DynamicResource QualityAudio}" Tag="audio"/>
+                                </ComboBox>
+                                <TextBlock Text="{DynamicResource LblSavePath}" FontSize="10"
                                            Foreground="{StaticResource TextSec}" Margin="0,0,0,3"/>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -437,7 +466,7 @@
                                     </Grid.ColumnDefinitions>
                                     <CheckBox x:Name="ChkFingerprintDl" IsChecked="True"
                                               Foreground="{StaticResource TextSec}"
-                                              Content="Fingerprint-Bypass" FontSize="11"
+                                              Content="Fingerprint" FontSize="10"
                                               VerticalAlignment="Center"/>
                                     <ComboBox x:Name="CmbFingerprintMethodDl" Grid.Column="1"
                                               Margin="8,0,0,0" SelectedIndex="2"
@@ -451,36 +480,204 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- OPEN FILE LOCATION (shown after successful job) -->
+                        <Button x:Name="BtnOpenFileLocation"
+                                Visibility="Collapsed" Opacity="0"
+                                Margin="0,2,0,0" Height="36"
+                                Click="OpenFileLocation_Click"
+                                Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Bd" CornerRadius="12" Padding="12,0"
+                                            BorderBrush="#205AAF6E" BorderThickness="0.5"
+                                            Background="#18405A48">
+                                        <StackPanel Orientation="Horizontal"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="📂" FontSize="13" Margin="0,0,8,0"/>
+                                            <TextBlock Text="{DynamicResource BtnOpenFileLocation}"
+                                                       FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource SuccessGreen}"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#24405A48"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="Bd" Property="Background" Value="#30405A48"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
                     </StackPanel>
                 </Grid>
 
-                <!-- START BUTTON -->
-                <Button x:Name="BtnStart" Grid.Row="1" Style="{StaticResource GradBtn}"
-                        Content="{DynamicResource BtnStart}" Margin="0,4,0,0"
-                        Click="Start_Click"/>
+                <!-- START BUTTON + LOG -->
+                <Grid Grid.Row="3" Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="BtnStart" Style="{StaticResource GradBtn}"
+                            Content="{DynamicResource BtnStart}"
+                            Click="Start_Click"/>
+                    <Button x:Name="BtnMainLog" Grid.Column="1"
+                            Style="{StaticResource GlassPillBtn}"
+                            Margin="8,0,0,0" IsEnabled="False"
+                            Visibility="Collapsed"
+                            VerticalAlignment="Stretch"
+                            Click="MainLog_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📄" FontSize="10" Margin="0,0,4,0"/>
+                            <TextBlock Text="Log"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
             </Grid>
 
-            <!-- ═══════════ STATUS BAR ═══════════ -->
-            <Border Grid.Row="2" Background="#141416"
-                    CornerRadius="0,0,8,8" Padding="12,0">
+            <!-- ═══════════ DEV CONSOLE ═══════════ -->
+            <Border x:Name="BorderDevConsole" Grid.Row="2" Visibility="Collapsed"
+                    Background="#0A0A0C" BorderBrush="{StaticResource BorderSub}"
+                    BorderThickness="0,1,0,0">
                 <Grid>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Ellipse x:Name="StatusDot" Width="6" Height="6" Margin="0,0,6,0">
-                            <Ellipse.Fill>
-                                <SolidColorBrush x:Name="StatusDotColor" Color="#5AAF6E"/>
-                            </Ellipse.Fill>
-                        </Ellipse>
-                        <TextBlock x:Name="TxtStatusBar" Text="{DynamicResource StatusStarting}"
-                                   FontSize="10" Foreground="{StaticResource TextSec}"/>
-                    </StackPanel>
-                    <Button x:Name="BtnMainLog"
-                            HorizontalAlignment="Right"
-                            Content="▾ Log"
-                            Style="{StaticResource OutlineBtn}"
-                            FontSize="10" Padding="8,3"
-                            IsEnabled="False"
-                            Click="MainLog_Click"/>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="26"/>
+                        <RowDefinition x:Name="DevConsoleContentRow" Height="120"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="#111113" Padding="10,0">
+                        <Grid>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="⌘" FontSize="10" Foreground="{StaticResource Accent}"
+                                           Margin="0,0,6,0"/>
+                                <TextBlock Text="{DynamicResource DevConsoleTitle}" FontSize="9"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextSec}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button x:Name="BtnDevConsoleHelp"
+                                        Style="{StaticResource IconBtn}"
+                                        Width="22" Height="22" Margin="0,0,2,0"
+                                        Click="DevConsoleHelp_Click"
+                                        ToolTip="{DynamicResource DevConsoleHelpTip}">
+                                    <TextBlock Text="?" FontSize="9" FontWeight="Bold"/>
+                                </Button>
+                                <Button Style="{StaticResource IconBtn}"
+                                        Width="22" Height="22" Margin="0,0,2,0"
+                                        Click="CollapseDevConsole_Click"
+                                        ToolTip="{DynamicResource DevConsoleCollapse}">
+                                    <TextBlock x:Name="TxtCollapseIcon" Text="▾" FontSize="9"/>
+                                </Button>
+                                <Button Style="{StaticResource IconBtn}"
+                                        Width="22" Height="22" Margin="0,0,2,0"
+                                        Click="DetachDevConsole_Click"
+                                        ToolTip="{DynamicResource DevConsoleDetach}">
+                                    <TextBlock Text="🗗" FontSize="9"/>
+                                </Button>
+                                <Button Style="{StaticResource IconBtn}"
+                                        Width="22" Height="22"
+                                        Click="ClearDevConsole_Click"
+                                        ToolTip="{DynamicResource DevConsoleClear}">
+                                    <TextBlock Text="🗑" FontSize="9"/>
+                                </Button>
+                            </StackPanel>
+                            <Popup x:Name="DevConsoleHelpPopup"
+                                   Placement="Bottom"
+                                   VerticalOffset="4"
+                                   StaysOpen="False"
+                                   AllowsTransparency="True"
+                                   PopupAnimation="None">
+                                <Border x:Name="DevHelpPopupBorder"
+                                        Background="#A8202024"
+                                        BorderBrush="#30FFFFFF" BorderThickness="0.5"
+                                        CornerRadius="12"
+                                        Padding="14,12" MinWidth="220"
+                                        Opacity="0" RenderTransformOrigin="0.5,0">
+                                    <Border.RenderTransform>
+                                        <TransformGroup>
+                                            <ScaleTransform ScaleX="0.96" ScaleY="0.96"/>
+                                            <TranslateTransform Y="-4"/>
+                                        </TransformGroup>
+                                    </Border.RenderTransform>
+                                    <StackPanel>
+                                        <TextBlock Text="{DynamicResource DevConsoleHelpTitle}" FontSize="10" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextSec}" Margin="0,0,0,8"/>
+                                        <TextBlock FontFamily="Consolas" FontSize="10"
+                                                   Foreground="{StaticResource Accent}" Text="help"
+                                                   Margin="0,0,0,2"/>
+                                        <TextBlock FontSize="10" Foreground="{StaticResource TextPrimary}"
+                                                   Text="{DynamicResource CmdHelpDesc}" Margin="0,0,0,6"/>
+                                        <TextBlock FontFamily="Consolas" FontSize="10"
+                                                   Foreground="{StaticResource Accent}" Text="clear / cls"
+                                                   Margin="0,0,0,2"/>
+                                        <TextBlock FontSize="10" Foreground="{StaticResource TextPrimary}"
+                                                   Text="{DynamicResource CmdClearDesc}" Margin="0,0,0,6"/>
+                                        <TextBlock FontFamily="Consolas" FontSize="10"
+                                                   Foreground="{StaticResource Accent}" Text="status"
+                                                   Margin="0,0,0,2"/>
+                                        <TextBlock FontSize="10" Foreground="{StaticResource TextPrimary}"
+                                                   Text="{DynamicResource CmdStatusDesc}" Margin="0,0,0,6"/>
+                                        <TextBlock FontFamily="Consolas" FontSize="10"
+                                                   Foreground="{StaticResource Accent}" Text="info"
+                                                   Margin="0,0,0,2"/>
+                                        <TextBlock FontSize="10" Foreground="{StaticResource TextPrimary}"
+                                                   Text="{DynamicResource CmdInfoDesc}" Margin="0,0,0,6"/>
+                                        <Border Height="1" Background="{StaticResource BorderSub}" Margin="0,2,0,6"/>
+                                        <TextBlock FontSize="10" Foreground="{StaticResource TextSec}"
+                                                   Text="{DynamicResource CmdFallbackDesc}"
+                                                   TextWrapping="Wrap" FontStyle="Italic"/>
+                                    </StackPanel>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </Border>
+                    <Grid x:Name="DevConsoleBody" Grid.Row="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBox x:Name="TxtDevConsole" Grid.Row="0"
+                                 Background="#0A0A0C" BorderThickness="0"
+                                 Foreground="#5A8A5A" FontFamily="Consolas" FontSize="10"
+                                 IsReadOnly="True" TextWrapping="Wrap"
+                                 VerticalScrollBarVisibility="Auto" Padding="10,6"/>
+                        <Border Grid.Row="1" Background="#111113"
+                                BorderBrush="{StaticResource BorderSub}"
+                                BorderThickness="0,1,0,0" Padding="6,4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="›" FontSize="12" FontWeight="Bold"
+                                           Foreground="{StaticResource Accent}"
+                                           VerticalAlignment="Center" Margin="4,0,6,0"/>
+                                <TextBox x:Name="TxtDevConsoleInput" Grid.Column="1"
+                                         Background="#0A0A0C" BorderThickness="0"
+                                         Foreground="#C0C0C0" FontFamily="Consolas" FontSize="10"
+                                         CaretBrush="#C0C0C0" Padding="4,3"
+                                         KeyDown="TxtDevConsoleInput_KeyDown"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
                 </Grid>
+            </Border>
+
+            <!-- ═══════════ STATUS BAR ═══════════ -->
+            <Border Grid.Row="3" Background="{StaticResource BgDeep}"
+                    CornerRadius="0,0,16,16" Padding="12,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse x:Name="StatusDot" Width="6" Height="6" Margin="0,0,6,0">
+                        <Ellipse.Fill>
+                            <SolidColorBrush x:Name="StatusDotColor" Color="#5AAF6E"/>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    <TextBlock x:Name="TxtStatusBar" Text="{DynamicResource StatusStarting}"
+                               FontSize="10" Foreground="{StaticResource TextSec}"/>
+                </StackPanel>
             </Border>
         </Grid>
     </Border>

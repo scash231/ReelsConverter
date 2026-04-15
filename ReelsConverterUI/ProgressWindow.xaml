@@ -8,32 +8,16 @@
         Background="Transparent" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner">
 
-    <Border CornerRadius="8"
+    <Border x:Name="RootBorder" CornerRadius="16"
             Background="{StaticResource BgDeep}"
             BorderBrush="{StaticResource BorderSub}" BorderThickness="1"
-            RenderTransformOrigin="0.5,0.5">
+            Opacity="0" RenderTransformOrigin="0.5,0.5">
         <Border.RenderTransform>
-            <ScaleTransform x:Name="WinScale"/>
+            <TransformGroup>
+                <ScaleTransform x:Name="WinScale"/>
+                <TranslateTransform x:Name="WinTranslate"/>
+            </TransformGroup>
         </Border.RenderTransform>
-
-        <Border.Triggers>
-            <EventTrigger RoutedEvent="Border.Loaded">
-                <BeginStoryboard>
-                    <Storyboard>
-                        <DoubleAnimation Storyboard.TargetName="WinScale"
-                                         Storyboard.TargetProperty="ScaleX"
-                                         From="0.96" To="1" Duration="0:0:0.3">
-                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                        </DoubleAnimation>
-                        <DoubleAnimation Storyboard.TargetName="WinScale"
-                                         Storyboard.TargetProperty="ScaleY"
-                                         From="0.96" To="1" Duration="0:0:0.3">
-                            <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
-                        </DoubleAnimation>
-                    </Storyboard>
-                </BeginStoryboard>
-            </EventTrigger>
-        </Border.Triggers>
 
         <Grid>
             <Grid.RowDefinitions>
@@ -44,7 +28,7 @@
             </Grid.RowDefinitions>
 
             <!-- Title bar -->
-            <Border Grid.Row="0" Background="#141416" CornerRadius="8,8,0,0"
+            <Border Grid.Row="0" Background="#141416" CornerRadius="16,16,0,0"
                     MouseLeftButtonDown="TitleBar_Drag">
                 <TextBlock Text="Fortschritt" FontWeight="SemiBold"
                            FontSize="12" Foreground="{StaticResource TextPrimary}"
@@ -53,8 +37,8 @@
 
             <!-- Progress content -->
             <StackPanel Grid.Row="1" Margin="16,12,16,0">
-                <Grid Margin="0,0,0,8">
-                    <TextBlock x:Name="TxtProgressMsg" FontSize="13" FontWeight="SemiBold"
+                <Grid x:Name="RowMsgPct" Margin="0,0,0,8">
+                    <TextBlock x:Name="TxtProgressMsg"
                                Foreground="{StaticResource TextPrimary}"
                                TextTrimming="CharacterEllipsis"/>
                     <TextBlock x:Name="TxtProgressPct" FontSize="13" FontWeight="Bold"
@@ -72,15 +56,22 @@
                     </Border>
                 </Border>
 
-                <TextBlock x:Name="TxtProgressDetail" FontSize="11"
-                           Foreground="{StaticResource TextSec}" Margin="0,6,0,0"
-                           TextTrimming="CharacterEllipsis"/>
+                <Grid x:Name="RowDetail" Margin="0,6,0,0">
+                    <TextBlock x:Name="TxtEta" FontSize="11"
+                               Foreground="{StaticResource TextSec}"
+                               HorizontalAlignment="Left"/>
+                    <TextBlock x:Name="TxtProgressDetail"
+                               Foreground="{StaticResource TextSec}"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="55,0,0,0"/>
+                </Grid>
             </StackPanel>
 
-            <!-- Footer row: countdown + console toggle + button -->
+            <!-- Footer row: countdown + open folder + console toggle + button -->
             <Grid Grid.Row="2" Margin="16,8,16,10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
@@ -88,11 +79,16 @@
                            Foreground="{StaticResource TextSec}"
                            VerticalAlignment="Center"
                            Visibility="Collapsed"/>
-                <Button x:Name="BtnToggleLog" Grid.Column="1"
+                <Button x:Name="BtnOpenFolder" Grid.Column="1"
+                        Content="📂 Open Folder" Style="{StaticResource OutlineBtn}"
+                        Margin="0,0,6,0"
+                        Visibility="Collapsed"
+                        Click="OpenFolder_Click"/>
+                <Button x:Name="BtnToggleLog" Grid.Column="2"
                         Content="▾ Log" Style="{StaticResource OutlineBtn}"
                         Margin="0,0,6,0"
                         Click="ToggleLog_Click"/>
-                <Button x:Name="BtnCancel" Grid.Column="2"
+                <Button x:Name="BtnCancel" Grid.Column="3"
                         Content="Abbrechen" Style="{StaticResource OutlineBtn}"
                         Click="Cancel_Click"/>
             </Grid>

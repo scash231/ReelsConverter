@@ -6,10 +6,16 @@
         Background="Transparent" ResizeMode="CanResizeWithGrip"
         WindowStartupLocation="CenterOwner">
 
-    <Border CornerRadius="8"
+    <Border x:Name="RootBorder" CornerRadius="16"
             Background="{StaticResource BgDeep}"
             BorderBrush="{StaticResource BorderSub}" BorderThickness="1"
-            RenderTransformOrigin="0.5,0.5">
+            Opacity="0" RenderTransformOrigin="0.5,0.5">
+        <Border.RenderTransform>
+            <TransformGroup>
+                <ScaleTransform x:Name="PopScale"/>
+                <TranslateTransform x:Name="PopTranslate"/>
+            </TransformGroup>
+        </Border.RenderTransform>
 
         <Grid>
             <Grid.RowDefinitions>
@@ -19,7 +25,7 @@
             </Grid.RowDefinitions>
 
             <!-- Title bar -->
-            <Border Grid.Row="0" Background="#141416" CornerRadius="8,8,0,0"
+            <Border Grid.Row="0" Background="#141416" CornerRadius="16,16,0,0"
                     MouseLeftButtonDown="TitleBar_Drag">
                 <Grid>
                     <TextBlock Text="Beschreibung bearbeiten" FontWeight="SemiBold"

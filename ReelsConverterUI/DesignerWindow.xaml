@@ -1,0 +1,294 @@
+<Window x:Class="ReelsConverterUI.DesignerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Theme Designer" Width="740" Height="620"
+        Icon="app.ico"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner">
+
+    <Border x:Name="RootBorder" CornerRadius="16"
+            Background="{StaticResource BgDeep}"
+            BorderBrush="{StaticResource BorderSub}" BorderThickness="1"
+            Opacity="0" RenderTransformOrigin="0.5,0.5">
+        <Border.RenderTransform>
+            <TransformGroup>
+                <ScaleTransform x:Name="WindowScale"/>
+                <TranslateTransform x:Name="WindowTranslate"/>
+            </TransformGroup>
+        </Border.RenderTransform>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="34"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- ═══════════ TITLE BAR ═══════════ -->
+            <Border Grid.Row="0" Background="#141416" CornerRadius="16,16,0,0"
+                    MouseLeftButtonDown="TitleBar_Drag">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <TextBlock Text="🎨" FontSize="12" Margin="0,0,6,0"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource DesignerTitle}" FontWeight="SemiBold"
+                                   FontSize="12" Foreground="{StaticResource TextPrimary}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <Button HorizontalAlignment="Right"
+                            Style="{StaticResource IconBtn}"
+                            Foreground="{StaticResource ErrorRed}"
+                            Width="30" Height="30"
+                            Click="Cancel_Click">
+                        <TextBlock Text="✕" FontSize="11"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- ═══════════ MAIN TWO-PANEL LAYOUT ═══════════ -->
+            <Grid Grid.Row="1" Margin="10,8,10,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="230"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ═══════ LEFT: CATEGORY TREE ═══════ -->
+                <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,5,0"
+                        Padding="0">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel x:Name="CategoryPanel" Margin="0,6,0,6"/>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- ═══════ RIGHT: COLOR PICKER + PREVIEW ═══════ -->
+                <Grid Grid.Column="1" Margin="5,0,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- PRESETS -->
+                    <Border Grid.Row="0" Style="{StaticResource Card}" Margin="0,0,0,5"
+                            Padding="10,8">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Lbl}"
+                                       Text="{DynamicResource DesignerPresets}"
+                                       Margin="2,0,0,6"/>
+                            <WrapPanel x:Name="PresetsPanel"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- COLOR PICKER AREA -->
+                    <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,5"
+                            Padding="12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Selected color name -->
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                                <Border x:Name="ActiveSwatch" Width="22" Height="22"
+                                        CornerRadius="6" Background="#7A9EC0"
+                                        BorderBrush="#50505A" BorderThickness="1"
+                                        VerticalAlignment="Center"/>
+                                <TextBlock x:Name="TxtActiveLabel" Text="Select a color"
+                                           FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimary}"
+                                           VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                <TextBlock x:Name="TxtActiveKey" Text=""
+                                           FontSize="10"
+                                           Foreground="{StaticResource TextSec}"
+                                           VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+
+                            <!-- SV Canvas + Hue Strip -->
+                            <Grid Grid.Row="1" Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="26"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Saturation / Value canvas -->
+                                <Border Grid.Column="0" CornerRadius="10"
+                                        BorderBrush="#40404A" BorderThickness="1"
+                                        ClipToBounds="True">
+                                    <Canvas x:Name="SvCanvas" Background="Black"
+                                            MouseLeftButtonDown="SvCanvas_MouseDown"
+                                            MouseMove="SvCanvas_MouseMove"
+                                            MouseLeftButtonUp="SvCanvas_MouseUp">
+                                        <!-- Thumb indicator -->
+                                        <Ellipse x:Name="SvThumb" Width="16" Height="16"
+                                                 Stroke="White" StrokeThickness="2"
+                                                 Fill="Transparent"
+                                                 IsHitTestVisible="False">
+                                            <Ellipse.Effect>
+                                                <DropShadowEffect BlurRadius="4" Opacity="0.5"
+                                                                  ShadowDepth="0"/>
+                                            </Ellipse.Effect>
+                                        </Ellipse>
+                                    </Canvas>
+                                </Border>
+
+                                <!-- Hue strip -->
+                                <Border Grid.Column="1" CornerRadius="8" Margin="8,0,0,0"
+                                        BorderBrush="#40404A" BorderThickness="1"
+                                        ClipToBounds="True">
+                                    <Canvas x:Name="HueCanvas"
+                                            MouseLeftButtonDown="HueCanvas_MouseDown"
+                                            MouseMove="HueCanvas_MouseMove"
+                                            MouseLeftButtonUp="HueCanvas_MouseUp">
+                                        <Canvas.Background>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                <GradientStop Color="#FF0000" Offset="0.000"/>
+                                                <GradientStop Color="#FFFF00" Offset="0.167"/>
+                                                <GradientStop Color="#00FF00" Offset="0.333"/>
+                                                <GradientStop Color="#00FFFF" Offset="0.500"/>
+                                                <GradientStop Color="#0000FF" Offset="0.667"/>
+                                                <GradientStop Color="#FF00FF" Offset="0.833"/>
+                                                <GradientStop Color="#FF0000" Offset="1.000"/>
+                                            </LinearGradientBrush>
+                                        </Canvas.Background>
+                                        <!-- Hue indicator -->
+                                        <Border x:Name="HueThumb" Height="6"
+                                                CornerRadius="3" IsHitTestVisible="False"
+                                                Background="Transparent"
+                                                BorderBrush="White" BorderThickness="2">
+                                            <Border.Effect>
+                                                <DropShadowEffect BlurRadius="3" Opacity="0.4"
+                                                                  ShadowDepth="0"/>
+                                            </Border.Effect>
+                                        </Border>
+                                    </Canvas>
+                                </Border>
+                            </Grid>
+
+                            <!-- HEX + RGB row -->
+                            <Grid Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="48"/>
+                                    <ColumnDefinition Width="6"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="48"/>
+                                    <ColumnDefinition Width="6"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="48"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="HEX" FontSize="10"
+                                           Foreground="{StaticResource TextSec}"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"
+                                           FontWeight="SemiBold"/>
+                                <TextBox x:Name="TxtHexInput" Grid.Column="1"
+                                         FontSize="12" MaxLength="7"
+                                         FontFamily="Consolas"
+                                         Padding="6,4" VerticalAlignment="Center"
+                                         TextChanged="TxtHexInput_Changed"/>
+                                <TextBlock Grid.Column="3" Text="R" FontSize="10"
+                                           Foreground="{StaticResource TextSec}"
+                                           VerticalAlignment="Center" Margin="0,0,4,0"
+                                           FontWeight="SemiBold"/>
+                                <TextBox x:Name="TxtR" Grid.Column="4"
+                                         FontSize="11" MaxLength="3"
+                                         FontFamily="Consolas"
+                                         Padding="4,4" VerticalAlignment="Center"
+                                         TextChanged="RgbInput_Changed"/>
+                                <TextBlock Grid.Column="6" Text="G" FontSize="10"
+                                           Foreground="{StaticResource TextSec}"
+                                           VerticalAlignment="Center" Margin="0,0,4,0"
+                                           FontWeight="SemiBold"/>
+                                <TextBox x:Name="TxtG" Grid.Column="7"
+                                         FontSize="11" MaxLength="3"
+                                         FontFamily="Consolas"
+                                         Padding="4,4" VerticalAlignment="Center"
+                                         TextChanged="RgbInput_Changed"/>
+                                <TextBlock Grid.Column="9" Text="B" FontSize="10"
+                                           Foreground="{StaticResource TextSec}"
+                                           VerticalAlignment="Center" Margin="0,0,4,0"
+                                           FontWeight="SemiBold"/>
+                                <TextBox x:Name="TxtB" Grid.Column="10"
+                                         FontSize="11" MaxLength="3"
+                                         FontFamily="Consolas"
+                                         Padding="4,4" VerticalAlignment="Center"
+                                         TextChanged="RgbInput_Changed"/>
+                            </Grid>
+                        </Grid>
+                    </Border>
+
+                    <!-- LIVE PREVIEW -->
+                    <Border Grid.Row="2" Style="{StaticResource Card}" Padding="10,8">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource Lbl}" Text="PREVIEW"
+                                       Margin="2,0,0,6"/>
+                            <Border x:Name="PrvOuter" CornerRadius="10" Padding="10">
+                                <StackPanel>
+                                    <Border x:Name="PrvCard" CornerRadius="8"
+                                            Padding="10" BorderThickness="1">
+                                        <StackPanel>
+                                            <TextBlock x:Name="PrvTitle" Text="Preview Title"
+                                                       FontSize="12" FontWeight="SemiBold"
+                                                       Margin="0,0,0,4"/>
+                                            <TextBlock x:Name="PrvSubtitle" Text="Secondary text sample"
+                                                       FontSize="11" Margin="0,0,0,8"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border x:Name="PrvButton" CornerRadius="8"
+                                                        Padding="12,5">
+                                                    <TextBlock x:Name="PrvBtnText" Text="Button"
+                                                               FontSize="11" FontWeight="SemiBold"/>
+                                                </Border>
+                                                <Border x:Name="PrvInput" CornerRadius="6"
+                                                        Padding="8,4" BorderThickness="1"
+                                                        Margin="8,0,0,0">
+                                                    <TextBlock x:Name="PrvInputText" Text="Input field"
+                                                               FontSize="10"/>
+                                                </Border>
+                                                <Border x:Name="PrvDotOk" Width="8" Height="8"
+                                                        CornerRadius="4" VerticalAlignment="Center"
+                                                        Margin="10,0,0,0"/>
+                                                <Border x:Name="PrvDotErr" Width="8" Height="8"
+                                                        CornerRadius="4" VerticalAlignment="Center"
+                                                        Margin="6,0,0,0"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- ═══════════ FOOTER ═══════════ -->
+            <Grid Grid.Row="2" Margin="12,6,12,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0"
+                        Content="{DynamicResource DesignerReset}"
+                        Style="{StaticResource OutlineBtn}"
+                        Click="Reset_Click"/>
+                <Button Grid.Column="2"
+                        Content="{DynamicResource BtnCancelSettings}"
+                        Style="{StaticResource OutlineBtn}"
+                        Margin="0,0,8,0"
+                        Click="Cancel_Click"/>
+                <Button Grid.Column="3"
+                        Content="{DynamicResource BtnSaveSettings}"
+                        Style="{StaticResource GradBtn}" Width="100"
+                        Click="Save_Click"/>
+            </Grid>
+
+        </Grid>
+    </Border>
+</Window>

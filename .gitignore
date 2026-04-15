@@ -1,15 +1,14 @@
-# ── Secrets & credentials ──────────────────────────────────────
+
 .env
 *.env
 client_secret*.json
 token.json
 
-# ── Media & downloads ──────────────────────────────────────────
 *.mp4
 *.mov
 *.avi
 
-# ── Python ─────────────────────────────────────────────────────
+
 __pycache__/
 *.pyc
 *.pyo
@@ -19,7 +18,7 @@ __pycache__/
 venv/
 env/
 
-# ── .NET build output ──────────────────────────────────────────
+
 bin/
 obj/
 *.user
@@ -27,23 +26,23 @@ obj/
 *.pdb
 *.log
 
-# ── Visual Studio ──────────────────────────────────────────────
+
 .vs/
 *.rsuser
 
-# ── OS noise ───────────────────────────────────────────────────
+
 Thumbs.db
 desktop.ini
 .DS_Store
 *.swp
 
-# ── App runtime / generated ────────────────────────────────────
+
 ffmpeg_bin/
 downloads/
 Downloads/
 done_compilation/
 settings.json
 
-# ── Build artifacts ────────────────────────────────────────────
+
 publish/
 dist/

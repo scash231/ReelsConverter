@@ -30,11 +30,11 @@ public sealed class BackendService : IDisposable
         {
             try
             {
-                var r = await _http.GetAsync("/api/health", ct);
+                var r = await _http.GetAsync("/api/health", ct).ConfigureAwait(false);
                 if (r.IsSuccessStatusCode) return true;
             }
             catch { /* server not ready */ }
-            await Task.Delay(500, ct);
+            await Task.Delay(500, ct).ConfigureAwait(false);
         }
         return false;
     }
@@ -43,9 +43,9 @@ public sealed class BackendService : IDisposable
     {
         var body = JsonSerializer.Serialize(new { url });
         var resp = await _http.PostAsync("/api/metadata",
-            new StringContent(body, Encoding.UTF8, "application/json"), ct);
+            new StringContent(body, Encoding.UTF8, "application/json"), ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
-        var json = await resp.Content.ReadAsStringAsync(ct);
+        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         return JsonSerializer.Deserialize<MetadataResponse>(json, _jso);
     }
 
@@ -54,6 +54,8 @@ public sealed class BackendService : IDisposable
         string? title, string? description, List<string>? tags,
         string? outputDir, string? privacy, bool fingerprint,
         string fingerprintMethod = "standard",
+        bool useGpu = false,
+        string? quality = null,
         CancellationToken ct = default)
     {
         var payload = new
@@ -64,29 +66,56 @@ public sealed class BackendService : IDisposable
             privacy = privacy ?? "public",
             fingerprint,
             fingerprint_method = fingerprintMethod,
+            use_gpu = useGpu,
+            quality = quality ?? "best",
         };
         var body = JsonSerializer.Serialize(payload);
         var resp = await _http.PostAsync("/api/jobs",
-            new StringContent(body, Encoding.UTF8, "application/json"), ct);
+            new StringContent(body, Encoding.UTF8, "application/json"), ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
-        var json = await resp.Content.ReadAsStringAsync(ct);
+        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         var result = JsonSerializer.Deserialize<JobCreateResponse>(json, _jso);
         return result?.JobId ?? throw new Exception("No job_id returned");
+    }
+
+    public async Task CancelJobAsync(string jobId, CancellationToken ct = default)
+    {
+        try
+        {
+            await _http.PostAsync($"/api/jobs/{jobId}/cancel",
+                new StringContent("{}", Encoding.UTF8, "application/json"), ct)
+                .ConfigureAwait(false);
+        }
+        catch { /* best-effort – backend may already be gone */ }
+    }
+
+    public async Task<string> GenerateSubtitlesAsync(
+        string videoPath, string modelSize = "base", string? language = null,
+        CancellationToken ct = default)
+    {
+        var payload = new { video_path = videoPath, model_size = modelSize, language };
+        var body = JsonSerializer.Serialize(payload);
+        var resp = await _http.PostAsync("/api/subtitles",
+            new StringContent(body, Encoding.UTF8, "application/json"), ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.GetProperty("srt").GetString() ?? string.Empty;
     }
 
     public async IAsyncEnumerable<JobStatus> StreamJobAsync(
         string jobId, [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, $"/api/jobs/{jobId}/stream");
-        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         resp.EnsureSuccessStatusCode();
 
-        await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+        await using var stream = await resp.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var reader = new StreamReader(stream);
 
-        while (!reader.EndOfStream && !ct.IsCancellationRequested)
+        while (!ct.IsCancellationRequested)
         {
-            var line = await reader.ReadLineAsync(ct);
+            var line = await reader.ReadLineAsync(ct).ConfigureAwait(false);
             if (line is null) break;
             if (!line.StartsWith("data: ")) continue;
 

@@ -24,5 +24,6 @@ public sealed class JobStatus
     [JsonPropertyName("progress")] public int    Progress { get; set; }
     [JsonPropertyName("message")]  public string Message  { get; set; } = "";
     [JsonPropertyName("error")]    public string? Error   { get; set; }
+    [JsonPropertyName("eta")]      public int?    Eta     { get; set; }
     [JsonPropertyName("result")]   public Dictionary<string, object>? Result { get; set; }
 }

@@ -17,6 +17,7 @@
     <sys:String x:Key="SectionDLSettings">DOWNLOAD EINSTELLUNGEN</sys:String>
 
     <!-- Buttons -->
+    <sys:String x:Key="LblVideoUrl">VIDEO URL</sys:String>
     <sys:String x:Key="TipPaste">Aus Zwischenablage einfügen</sys:String>
     <sys:String x:Key="BtnFetch">Metadaten</sys:String>
     <sys:String x:Key="BtnCopyTitle">📋 Titel</sys:String>
@@ -81,6 +82,8 @@
     <sys:String x:Key="SettingsFpBypass">Fingerprint-Bypass aktivieren</sys:String>
     <sys:String x:Key="SettingsDownload">DOWNLOAD STANDARD</sys:String>
     <sys:String x:Key="SettingsDefaultOutputDir">Standardspeicherort</sys:String>
+    <sys:String x:Key="SettingsPerformance">LEISTUNG</sys:String>
+    <sys:String x:Key="SettingsUseGpu">GPU-Beschleunigung verwenden (NVIDIA NVENC)</sys:String>
     <sys:String x:Key="SettingsBackend">BACKEND</sys:String>
     <sys:String x:Key="SettingsBackendUrl">Backend-URL</sys:String>
     <sys:String x:Key="SettingsBackendTimeout">Startzeit-Limit (Sekunden)</sys:String>
@@ -88,11 +91,117 @@
     <sys:String x:Key="BtnCancelSettings">Abbrechen</sys:String>
 
     <!-- Additional quick actions -->
-    <sys:String x:Key="BtnCopyDesc">Beschreibung</sys:String>
-    <sys:String x:Key="BtnCopyTags">Tags</sys:String>
-    <sys:String x:Key="BtnClearForm">Zurücksetzen</sys:String>
+    <sys:String x:Key="BtnCopyDesc">📝 Beschreibung</sys:String>
+    <sys:String x:Key="BtnCopyTags">🏷 Tags</sys:String>
+    <sys:String x:Key="BtnClearForm">🔄 Zurücksetzen</sys:String>
     <sys:String x:Key="TipCopyDesc">Beschreibung in die Zwischenablage kopieren</sys:String>
     <sys:String x:Key="TipCopyTags">Tags als Text kopieren</sys:String>
     <sys:String x:Key="TipClearForm">Eingabe und Metadaten zurücksetzen</sys:String>
+    <sys:String x:Key="BtnCopyAll">📋 Alles kopieren</sys:String>
+    <sys:String x:Key="TipCopyAll">Titel, Beschreibung und Tags kopieren</sys:String>
+    <sys:String x:Key="BtnSaveThumbnail">🖼 Thumbnail</sys:String>
+    <sys:String x:Key="TipSaveThumbnail">Vorschaubild speichern</sys:String>
+    <sys:String x:Key="SaveThumbnailTitle">Thumbnail speichern</sys:String>
+
+    <!-- Auto-detect -->
+    <sys:String x:Key="AutoDetectHint">Automatisch erkannt</sys:String>
+    <sys:String x:Key="PlatformOther">Andere Plattform</sys:String>
+
+    <!-- Dev Console -->
+    <sys:String x:Key="DevConsoleTitle">DEV CONSOLE</sys:String>
+    <sys:String x:Key="DevConsoleClear">Konsole leeren</sys:String>
+    <sys:String x:Key="DevConsoleDetach">Konsole abdocken</sys:String>
+    <sys:String x:Key="DevConsoleReattach">Konsole andocken</sys:String>
+    <sys:String x:Key="DevConsoleMinimize">Minimieren</sys:String>
+    <sys:String x:Key="DevConsoleCollapse">Einklappen / Ausklappen</sys:String>
+    <sys:String x:Key="DevConsoleHelpTip">Verfügbare Befehle anzeigen</sys:String>
+    <sys:String x:Key="DevConsoleHelpTitle">KONSOLEN-BEFEHLE</sys:String>
+    <sys:String x:Key="CmdHelpDesc">Verfügbare Befehle anzeigen</sys:String>
+    <sys:String x:Key="CmdClearDesc">Konsolenausgabe leeren</sys:String>
+    <sys:String x:Key="CmdStatusDesc">Backend-Verbindungsstatus anzeigen</sys:String>
+    <sys:String x:Key="CmdInfoDesc">App-Version und Einstellungen anzeigen</sys:String>
+    <sys:String x:Key="CmdFallbackDesc">Alle anderen Eingaben werden direkt an den Backend-Prozess gesendet.</sys:String>
+    <sys:String x:Key="SettingsDevConsole">Entwicklerkonsole anzeigen</sys:String>
+    <sys:String x:Key="SettingsDeveloper">ENTWICKLER</sys:String>
+
+    <!-- Progress window -->
+    <sys:String x:Key="BtnOpenFolder">📂 Ordner öffnen</sys:String>
+    <sys:String x:Key="BtnOpenFileLocation">Datei-Speicherort öffnen</sys:String>
+
+    <!-- Theme Designer -->
+    <sys:String x:Key="DesignerTitle">Theme Designer</sys:String>
+    <sys:String x:Key="TipDesigner">Theme anpassen</sys:String>
+    <sys:String x:Key="DesignerPresets">VORLAGEN</sys:String>
+    <sys:String x:Key="DesignerBackgrounds">HINTERGRÜNDE</sys:String>
+    <sys:String x:Key="DesignerBorders">RAHMEN</sys:String>
+    <sys:String x:Key="DesignerAccent">AKZENTFARBEN</sys:String>
+    <sys:String x:Key="DesignerText">TEXT</sys:String>
+    <sys:String x:Key="DesignerStatus">STATUS</sys:String>
+    <sys:String x:Key="DesignerReset">Standard</sys:String>
+
+    <!-- Settings tabs -->
+    <sys:String x:Key="SettingsTabGeneral">Allgemein</sys:String>
+    <sys:String x:Key="SettingsTabUpload">Upload</sys:String>
+    <sys:String x:Key="SettingsTabDownload">Download</sys:String>
+    <sys:String x:Key="SettingsTabAdvanced">Erweitert</sys:String>
+    <sys:String x:Key="SettingsAppearance">DARSTELLUNG</sys:String>
+    <sys:String x:Key="SettingsBehavior">VERHALTEN</sys:String>
+    <sys:String x:Key="SettingsAlwaysOnTop">Immer im Vordergrund</sys:String>
+    <sys:String x:Key="SettingsAutoFetch">Metadaten automatisch laden</sys:String>
+    <sys:String x:Key="SettingsNotifyComplete">Benachrichtigung bei Fertigstellung</sys:String>
+    <sys:String x:Key="SettingsYoutubeDefaults">YOUTUBE STANDARD</sys:String>
+    <sys:String x:Key="SettingsFingerprintBypass">FINGERPRINT-BYPASS</sys:String>
+    <sys:String x:Key="SettingsFpEnable">Aktivieren</sys:String>
+    <sys:String x:Key="SettingsFpMethod">Methode</sys:String>
+    <sys:String x:Key="SettingsSaveLocation">SPEICHERORT</sys:String>
+    <sys:String x:Key="SettingsQualitySection">QUALITÄT</sys:String>
+    <sys:String x:Key="SettingsVideoQuality">Videoqualität</sys:String>
+    <sys:String x:Key="QualityBest">Beste</sys:String>
+    <sys:String x:Key="SettingsMaxJobs">Max. parallele Jobs</sys:String>
+    <sys:String x:Key="SettingsResetAll">Einstellungen zurücksetzen</sys:String>
+    <sys:String x:Key="SettingsResetConfirm">Alle Einstellungen auf Standard zurücksetzen?</sys:String>
+
+    <!-- URL & Download fields -->
+    <sys:String x:Key="UrlPlaceholder">Video-URL einfügen oder eingeben…</sys:String>
+    <sys:String x:Key="LblDlTitle">Dateiname</sys:String>
+    <sys:String x:Key="DlTitlePlaceholder">Originaltitel verwenden…</sys:String>
+    <sys:String x:Key="LblQuality">Qualität</sys:String>
+    <sys:String x:Key="QualityAudio">Nur Audio</sys:String>
+
+    <!-- Video Editor -->
+    <sys:String x:Key="EditorTitle">Video Editor</sys:String>
+    <sys:String x:Key="TipEditor">Video Editor öffnen</sys:String>
+    <sys:String x:Key="EditorNoVideo">Kein Video geladen</sys:String>
+    <sys:String x:Key="EditorFileSection">DATEI</sys:String>
+    <sys:String x:Key="EditorNoFileLoaded">Keine Datei geladen</sys:String>
+    <sys:String x:Key="EditorBrowse">📂 Video öffnen</sys:String>
+    <sys:String x:Key="EditorBrowseTitle">Video auswählen</sys:String>
+    <sys:String x:Key="EditorTrimSection">SCHNITT</sys:String>
+    <sys:String x:Key="EditorTrimStart">Start</sys:String>
+    <sys:String x:Key="EditorTrimEnd">Ende</sys:String>
+    <sys:String x:Key="EditorMarkStart">▶ Start setzen</sys:String>
+    <sys:String x:Key="EditorMarkEnd">⏹ Ende setzen</sys:String>
+    <sys:String x:Key="EditorResetTrim">↺ Zurücksetzen</sys:String>
+    <sys:String x:Key="EditorTransformSection">TRANSFORMATION</sys:String>
+    <sys:String x:Key="EditorRotateCW">↻ Rechts drehen</sys:String>
+    <sys:String x:Key="EditorRotateCCW">↺ Links drehen</sys:String>
+    <sys:String x:Key="EditorFlipH">⇔ Spiegeln</sys:String>
+    <sys:String x:Key="EditorMuteAudio">Audio entfernen</sys:String>
+    <sys:String x:Key="EditorExportSection">EXPORT</sys:String>
+    <sys:String x:Key="EditorExport">✂ Exportieren</sys:String>
+    <sys:String x:Key="EditorExportTitle">Video exportieren</sys:String>
+    <sys:String x:Key="EditorExporting">Exportiere…</sys:String>
+    <sys:String x:Key="EditorExportDone">Video erfolgreich exportiert!</sys:String>
+
+    <!-- Subtitles -->
+    <sys:String x:Key="EditorSubtitleSection">UNTERTITEL</sys:String>
+    <sys:String x:Key="EditorSubModel">Modell</sys:String>
+    <sys:String x:Key="EditorSubLang">Sprache</sys:String>
+    <sys:String x:Key="EditorGenSubs">🎤 Untertitel generieren</sys:String>
+    <sys:String x:Key="EditorGenSubsRunning">Generiere…</sys:String>
+    <sys:String x:Key="EditorBurnSubs">Untertitel einbrennen</sys:String>
+    <sys:String x:Key="EditorSubStatusGenerating">Spracherkennung läuft…</sys:String>
+    <sys:String x:Key="EditorSubStatusDone">Untertitel generiert ✓</sys:String>
+    <sys:String x:Key="EditorSubStatusEmpty">Keine Sprache erkannt.</sys:String>
 
 </ResourceDictionary>
