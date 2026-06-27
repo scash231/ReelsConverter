@@ -4,15 +4,16 @@ C# WPF app with a Python backend for downloading and re-uploading short-form vid
 
 Check Requirments.txt
 
-# V3
+# V3.1
 
-- Video Editor with built in Chatgpt Whisper to add Subtitles.
-- Design Editor
-- Better Settings window
-- Better Performance
-- GPU Acceleration instead of CPU Decoding (only for nvidia cards)
-- Design Overhaul
-- Better logging and a console to better help urself when something goes wrong.
+- Settings toggle to auto show progress window or only show a bar on top.
+- Option to toggle scroll bars/sliders on and off.
+- Animation Level controls (None, Reduced, Standard) in Window Style.
+- Dynamic "+ Add New" preset card and modern inline save overlay.
+- Fixed window startup flicker/stretch visual bug.
+- Improved light theme legibility and contrast.
+- Subtler Beta tag next to Video Editor.
+- Re-structured window icons into a separate Icons directory.
 
 - Audio/Video support
 - 4k/2k/1080p/720p/480p/Audio Only
