@@ -1,14 +1,15 @@
 using ReelsConverterUI.Animations;
 using ReelsConverterUI.Models;
 using ReelsConverterUI.Services;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace ReelsConverterUI;
 
@@ -17,6 +18,7 @@ public partial class DesignerWindow : Window
     private readonly Rect _originRect;
     private bool _isAnimatingClose;
     private bool? _pendingResult;
+    public bool IsSaved { get; private set; } = false;
 
     // Color data: key → (hex, label, category)
     private static readonly (string Key, string Label, string Category)[] _colorDefs =
@@ -40,19 +42,34 @@ public partial class DesignerWindow : Window
     private readonly Dictionary<string, (TextBlock header, StackPanel body, Border chevron)> _categories = new();
     private string? _activeKey;
     private bool _suppressPickerUpdate;
+    private bool _suppressSettingsUpdate;
     private bool _suppressInputSync;
-    private bool _svDragging;
-    private bool _hueDragging;
     private double _currentHue;
+    private readonly ThemeSettings _originalTheme;
+    private int _currentTabIndex = 0;
 
-    // Preset definitions
+    // Preset definitions sorted by color spectrum (Light/Beige -> Red/Orange/Gold/Brown -> Green/Lime -> Cyan/Blue -> Purple/Pink)
     private static readonly (string Tag, string Name, ThemeSettings Theme)[] _presets =
     [
-        ("Default",  "Default",  ThemeService.DefaultDark),
-        ("Midnight", "Midnight", ThemeService.MidnightBlue),
-        ("Ocean",    "Ocean",    ThemeService.Ocean),
-        ("Forest",   "Forest",   ThemeService.Forest),
+        ("Alabaster","Alabaster", ThemeService.Alabaster),
+        ("Sandstone","Sandstone", ThemeService.Sandstone),
+        ("Mint",     "Mint Fresh",   ThemeService.MintFresh),
+        ("Crimson",  "Crimson Red",  ThemeService.CrimsonRed),
+        ("Sunset",   "Sunset Glow",  ThemeService.SunsetGlow),
+        ("Gold",     "Midnight Gold", ThemeService.MidnightGold),
         ("Warm",     "Warm",     ThemeService.Warm),
+        ("Lime",     "Cyber Lime",   ThemeService.CyberLime),
+        ("Emerald",  "Emerald",  ThemeService.Emerald),
+        ("Forest",   "Forest",   ThemeService.Forest),
+        ("Cyberpunk","Neon Cyber",ThemeService.Cyberpunk),
+        ("Ocean",    "Ocean",    ThemeService.Ocean),
+        ("Midnight", "Midnight", ThemeService.MidnightBlue),
+        ("Nordic",   "Ice Nordic",ThemeService.Nordic),
+        ("Default",  "Default",  ThemeService.DefaultDark),
+        ("Oled",     "OLED Dark", ThemeService.OledDark),
+        ("Amethyst", "Amethyst",     ThemeService.Amethyst),
+        ("Dracula",  "Dracula",  ThemeService.Dracula),
+        ("Aurora",   "Aurora",   ThemeService.Aurora),
         ("Rose",     "Rosé",     ThemeService.Rose),
     ];
 
@@ -60,15 +77,46 @@ public partial class DesignerWindow : Window
     {
         InitializeComponent();
         _originRect = originRect;
+        _originalTheme = new ThemeSettings
+        {
+            AdaptiveThumbnailTheme = ThemeService.Current.AdaptiveThumbnailTheme,
+            AnimationLevel = ThemeService.Current.AnimationLevel,
+            BgDeep = ThemeService.Current.BgDeep,
+            BgSurface = ThemeService.Current.BgSurface,
+            BgCard = ThemeService.Current.BgCard,
+            BgElevated = ThemeService.Current.BgElevated,
+            BorderSub = ThemeService.Current.BorderSub,
+            Accent = ThemeService.Current.Accent,
+            AccentAlt = ThemeService.Current.AccentAlt,
+            ButtonGrad = ThemeService.Current.ButtonGrad,
+            TextPrimary = ThemeService.Current.TextPrimary,
+            TextSec = ThemeService.Current.TextSec,
+            SuccessGreen = ThemeService.Current.SuccessGreen,
+            ErrorRed = ThemeService.Current.ErrorRed
+        };
         Loaded += OnLoaded;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
         FluidMotion.MorphOpen(RootBorder, WindowScale, WindowTranslate, _originRect, this);
         BuildCategories();
         BuildPresets();
+        BuildCustomPresets();
+        BuildPalette();
         LoadTheme(ThemeService.Current);
+
+        // Load Liquid Glass checkbox states
+        _suppressSettingsUpdate = true;
+        var settings = Services.SettingsService.Current;
+        ChkBlurMain.IsChecked = settings.BlurMainWindow;
+        ChkBlurEditor.IsChecked = settings.BlurEditor;
+        ChkBlurSettings.IsChecked = settings.BlurSettings;
+        ChkBlurLogViewer.IsChecked = settings.BlurLogViewer;
+        ChkBlurDevConsole.IsChecked = settings.BlurDevConsole;
+        ChkBlurDescEditor.IsChecked = settings.BlurDescEditor;
+        _suppressSettingsUpdate = false;
 
         // Select first color
         SelectColor(_colorDefs[0].Key);
@@ -79,6 +127,7 @@ public partial class DesignerWindow : Window
     // ════════════════════════════════════════════════════════════
     private void BuildCategories()
     {
+        CategoryPanel.Children.Clear();
         var grouped = _colorDefs.GroupBy(c => c.Category);
 
         foreach (var group in grouped)
@@ -199,7 +248,7 @@ public partial class DesignerWindow : Window
         row.MouseEnter += (s, e) =>
         {
             if (key != _activeKey)
-                row.Background = new SolidColorBrush(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF));
+                row.SetResourceReference(Border.BackgroundProperty, "HoverBg");
         };
         row.MouseLeave += (s, e) =>
         {
@@ -241,35 +290,408 @@ public partial class DesignerWindow : Window
     // ════════════════════════════════════════════════════════════
     private void BuildPresets()
     {
+        PresetsPanel.Children.Clear();
         foreach (var (tag, name, theme) in _presets)
         {
-            var btn = new Button
+            var card = new Border
             {
-                Tag = tag,
-                Margin = new Thickness(0, 0, 6, 6),
-                Padding = new Thickness(6, 4, 10, 4),
+                Width = 112,
+                Height = 56,
+                Margin = new Thickness(4, 0, 4, 8),
+                CornerRadius = new CornerRadius(8),
+                Background = ThemeService.TryParseColor(theme.BgSurface, out var bgSurf)
+                    ? new SolidColorBrush(bgSurf) : new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x24)),
+                BorderBrush = ThemeService.TryParseColor(theme.BorderSub, out var borderCol)
+                    ? new SolidColorBrush(borderCol) : new SolidColorBrush(Color.FromRgb(0x38, 0x38, 0x3D)),
+                BorderThickness = new Thickness(1),
                 Cursor = Cursors.Hand,
-                Style = (Style)FindResource("OutlineBtn"),
-                FontSize = 11
+                Tag = tag
             };
 
-            // Button content: accent dot + name
-            var sp = new StackPanel { Orientation = Orientation.Horizontal };
-            sp.Children.Add(new Border
-            {
-                Width = 8,
-                Height = 8,
-                CornerRadius = new CornerRadius(4),
-                Background = ThemeService.TryParseColor(theme.Accent, out var ac)
-                    ? new SolidColorBrush(ac) : Brushes.Gray,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 6, 0)
-            });
-            sp.Children.Add(new TextBlock { Text = name, VerticalAlignment = VerticalAlignment.Center });
-            btn.Content = sp;
+            var grid = new Grid();
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-            btn.Click += Preset_Click;
-            PresetsPanel.Children.Add(btn);
+            var nameTxt = new TextBlock
+            {
+                Text = name,
+                FontSize = 12,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = ThemeService.TryParseColor(theme.TextPrimary, out var txtColor)
+                    ? new SolidColorBrush(txtColor) : Brushes.White,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 4, 0, 2)
+            };
+            Grid.SetRow(nameTxt, 0);
+            grid.Children.Add(nameTxt);
+
+            var swatchPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 2, 0, 4)
+            };
+            Grid.SetRow(swatchPanel, 2);
+            grid.Children.Add(swatchPanel);
+
+            string[] presetColors = { theme.BgDeep, theme.BgCard, theme.Accent, theme.TextPrimary };
+            double leftMargin = 0;
+            foreach (var colHex in presetColors)
+            {
+                if (ThemeService.TryParseColor(colHex, out var swatchCol))
+                {
+                    double swatchLuminance = (0.2126 * swatchCol.R + 0.7152 * swatchCol.G + 0.0722 * swatchCol.B) / 255.0;
+                    bool swatchIsLight = swatchLuminance > 0.7;
+
+                    var dot = new Border
+                    {
+                        Width = 12,
+                        Height = 12,
+                        CornerRadius = new CornerRadius(6),
+                        Background = new SolidColorBrush(swatchCol),
+                        BorderBrush = swatchIsLight 
+                            ? new SolidColorBrush(Color.FromArgb(0x30, 0, 0, 0)) 
+                            : new SolidColorBrush(Color.FromArgb(0x40, 255, 255, 255)),
+                        BorderThickness = new Thickness(1),
+                        Margin = new Thickness(leftMargin, 0, 0, 0)
+                    };
+                    swatchPanel.Children.Add(dot);
+                    leftMargin = -3; // overlaps slightly
+                }
+            }
+
+            card.Child = grid;
+
+            card.MouseLeftButtonDown += (s, e) =>
+            {
+                LoadTheme(theme);
+                e.Handled = true;
+            };
+
+            card.MouseEnter += (s, e) =>
+            {
+                card.BorderBrush = ThemeService.TryParseColor(theme.Accent, out var accCol)
+                    ? new SolidColorBrush(accCol) : Brushes.White;
+                card.RenderTransform = new ScaleTransform(1.03, 1.03);
+                card.RenderTransformOrigin = new Point(0.5, 0.5);
+            };
+            card.MouseLeave += (s, e) =>
+            {
+                card.BorderBrush = ThemeService.TryParseColor(theme.BorderSub, out var borderColOld)
+                    ? new SolidColorBrush(borderColOld) : new SolidColorBrush(Color.FromRgb(0x38, 0x38, 0x3D));
+                card.RenderTransform = null;
+            };
+
+            PresetsPanel.Children.Add(card);
+        }
+    }
+
+    private void BuildCustomPresets()
+    {
+        if (CustomPresetsPanel == null) return;
+        CustomPresetsPanel.Children.Clear();
+
+        var addNewCard = CreateAddNewPresetCard();
+        CustomPresetsPanel.Children.Add(addNewCard);
+
+        var customList = ThemeService.LoadCustomPresets();
+        foreach (var theme in customList)
+        {
+            var card = CreateCustomPresetCard(theme);
+            CustomPresetsPanel.Children.Add(card);
+        }
+    }
+
+    private Border CreateCustomPresetCard(ThemeSettings theme)
+    {
+        var card = new Border
+        {
+            Width = 112,
+            Height = 56,
+            Margin = new Thickness(4, 0, 4, 8),
+            CornerRadius = new CornerRadius(8),
+            Background = ThemeService.TryParseColor(theme.BgSurface, out var bgSurf)
+                ? new SolidColorBrush(bgSurf) : new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x24)),
+            BorderBrush = ThemeService.TryParseColor(theme.BorderSub, out var borderCol)
+                ? new SolidColorBrush(borderCol) : new SolidColorBrush(Color.FromRgb(0x38, 0x38, 0x3D)),
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand
+        };
+
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        var nameTxt = new TextBlock
+        {
+            Text = theme.PresetName,
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = ThemeService.TryParseColor(theme.TextPrimary, out var txtColor)
+                ? new SolidColorBrush(txtColor) : Brushes.White,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(6, 4, 6, 2),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        Grid.SetRow(nameTxt, 0);
+        grid.Children.Add(nameTxt);
+
+        var swatchPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 2, 0, 4)
+        };
+        Grid.SetRow(swatchPanel, 2);
+        grid.Children.Add(swatchPanel);
+
+        string[] presetColors = { theme.BgDeep, theme.BgCard, theme.Accent, theme.TextPrimary };
+        double leftMargin = 0;
+        foreach (var colHex in presetColors)
+        {
+            if (ThemeService.TryParseColor(colHex, out var swatchCol))
+            {
+                double swatchLuminance = (0.2126 * swatchCol.R + 0.7152 * swatchCol.G + 0.0722 * swatchCol.B) / 255.0;
+                bool swatchIsLight = swatchLuminance > 0.7;
+
+                var dot = new Border
+                {
+                    Width = 12,
+                    Height = 12,
+                    CornerRadius = new CornerRadius(6),
+                    Background = new SolidColorBrush(swatchCol),
+                    BorderBrush = swatchIsLight 
+                        ? new SolidColorBrush(Color.FromArgb(0x30, 0, 0, 0)) 
+                        : new SolidColorBrush(Color.FromArgb(0x40, 255, 255, 255)),
+                    BorderThickness = new Thickness(1),
+                    Margin = new Thickness(leftMargin, 0, 0, 0)
+                };
+                swatchPanel.Children.Add(dot);
+                leftMargin = -3;
+            }
+        }
+
+        var deleteBtn = new Border
+        {
+            Width = 14,
+            Height = 14,
+            CornerRadius = new CornerRadius(7),
+            Background = new SolidColorBrush(Color.FromArgb(0x80, 0x22, 0x22, 0x22)),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 2, 2, 0),
+            Cursor = Cursors.Hand,
+            Visibility = Visibility.Collapsed,
+            Child = new TextBlock
+            {
+                Text = "✕",
+                FontSize = 8,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            }
+        };
+        grid.Children.Add(deleteBtn);
+
+        card.Child = grid;
+
+        card.MouseLeftButtonDown += (s, e) =>
+        {
+            LoadTheme(theme);
+            e.Handled = true;
+        };
+
+        card.MouseEnter += (s, e) =>
+        {
+            card.BorderBrush = ThemeService.TryParseColor(theme.Accent, out var accCol)
+                ? new SolidColorBrush(accCol) : Brushes.White;
+            card.RenderTransform = new ScaleTransform(1.03, 1.03);
+            card.RenderTransformOrigin = new Point(0.5, 0.5);
+            deleteBtn.Visibility = Visibility.Visible;
+        };
+
+        card.MouseLeave += (s, e) =>
+        {
+            card.BorderBrush = ThemeService.TryParseColor(theme.BorderSub, out var borderColOld)
+                ? new SolidColorBrush(borderColOld) : new SolidColorBrush(Color.FromRgb(0x38, 0x38, 0x3D));
+            card.RenderTransform = null;
+            deleteBtn.Visibility = Visibility.Collapsed;
+        };
+
+        deleteBtn.MouseLeftButtonDown += (s, e) =>
+        {
+            e.Handled = true;
+            DeleteCustomPreset(theme);
+        };
+
+        return card;
+    }
+
+    private Border CreateAddNewPresetCard()
+    {
+        var card = new Border
+        {
+            Width = 112,
+            Height = 56,
+            Margin = new Thickness(4, 0, 4, 8),
+            CornerRadius = new CornerRadius(8),
+            Background = (Brush)Application.Current.Resources["InputBg"] ?? Brushes.Transparent,
+            BorderBrush = (Brush)Application.Current.Resources["BorderSub"] ?? Brushes.Gray,
+            BorderThickness = new Thickness(1),
+            Cursor = Cursors.Hand
+        };
+
+        var grid = new Grid();
+        var plusTxt = new TextBlock
+        {
+            Text = "+",
+            FontSize = 24,
+            FontWeight = FontWeights.Bold,
+            Foreground = (Brush)Application.Current.Resources["TextSec"] ?? Brushes.Gray,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        grid.Children.Add(plusTxt);
+        card.Child = grid;
+
+        card.MouseLeftButtonDown += (s, e) =>
+        {
+            e.Handled = true;
+            ShowAddPresetDialog();
+        };
+
+        card.MouseEnter += (s, e) =>
+        {
+            card.BorderBrush = (Brush)Application.Current.Resources["Accent"] ?? Brushes.White;
+            card.RenderTransform = new ScaleTransform(1.03, 1.03);
+            card.RenderTransformOrigin = new Point(0.5, 0.5);
+            plusTxt.Foreground = (Brush)Application.Current.Resources["TextPrimary"] ?? Brushes.White;
+        };
+
+        card.MouseLeave += (s, e) =>
+        {
+            card.BorderBrush = (Brush)Application.Current.Resources["BorderSub"] ?? Brushes.Gray;
+            card.RenderTransform = null;
+            plusTxt.Foreground = (Brush)Application.Current.Resources["TextSec"] ?? Brushes.Gray;
+        };
+
+        return card;
+    }
+
+    private void ShowAddPresetDialog()
+    {
+        TxtOverlayPresetName.Text = "My Custom Theme";
+        DlgOverlay.Visibility = Visibility.Visible;
+        TxtOverlayPresetName.Focus();
+        TxtOverlayPresetName.SelectAll();
+    }
+
+    private void CancelOverlay_Click(object sender, RoutedEventArgs e)
+    {
+        DlgOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void SaveOverlay_Click(object sender, RoutedEventArgs e)
+    {
+        var name = TxtOverlayPresetName.Text.Trim();
+        if (string.IsNullOrEmpty(name)) return;
+
+        var currentPreset = ReadTheme();
+        currentPreset.PresetName = name;
+
+        var presets = ThemeService.LoadCustomPresets();
+        presets.RemoveAll(p => p.PresetName.Equals(name, StringComparison.OrdinalIgnoreCase));
+        presets.Add(currentPreset);
+        ThemeService.SaveCustomPresets(presets);
+
+        BuildCustomPresets();
+        DlgOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void DeleteCustomPreset(ThemeSettings theme)
+    {
+        var presets = ThemeService.LoadCustomPresets();
+        presets.RemoveAll(p => p.PresetName.Equals(theme.PresetName, StringComparison.Ordinal));
+        ThemeService.SaveCustomPresets(presets);
+        BuildCustomPresets();
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  BUILD CURATED PALETTE GRID
+    // ════════════════════════════════════════════════════════════
+    private void BuildPalette()
+    {
+        PaletteGridPanel.Children.Clear();
+        string[] colors =
+        [
+            "#EF4444", "#F43F5E", "#EC4899", "#A855F7", "#8B5CF6", "#6366F1",
+            "#3B82F6", "#0EA5E9", "#06B6D4", "#14B8A6", "#10B981", "#22C55E",
+            "#84CC16", "#EAB308", "#F59E0B", "#F97316", "#64748B", "#94A3B8"
+        ];
+
+        foreach (var hex in colors)
+        {
+            if (ThemeService.TryParseColor(hex, out var c))
+            {
+                double swatchLuminance = (0.2126 * c.R + 0.7152 * c.G + 0.0722 * c.B) / 255.0;
+                bool swatchIsLight = swatchLuminance > 0.7;
+                var normalBorder = swatchIsLight 
+                    ? new SolidColorBrush(Color.FromArgb(0x30, 0, 0, 0)) 
+                    : new SolidColorBrush(Color.FromArgb(0x30, 255, 255, 255));
+                var hoverBorder = swatchIsLight 
+                    ? Brushes.Black 
+                    : Brushes.White;
+
+                var border = new Border
+                {
+                    Width = 14,
+                    Height = 14,
+                    CornerRadius = new CornerRadius(7),
+                    Background = new SolidColorBrush(c),
+                    BorderBrush = normalBorder,
+                    BorderThickness = new Thickness(1),
+                    Margin = new Thickness(3),
+                    Cursor = Cursors.Hand,
+                    Tag = hex
+                };
+
+                border.MouseLeftButtonDown += (s, e) =>
+                {
+                    if (_activeKey == null) return;
+                    if (ThemeService.TryParseColor(hex, out var col))
+                    {
+                        ApplyColorFromPicker(col);
+                        SyncPickerFromColor(col);
+                    }
+                    e.Handled = true;
+                };
+
+                border.MouseEnter += (s, e) =>
+                {
+                    border.BorderBrush = hoverBorder;
+                    border.Width = 16;
+                    border.Height = 16;
+                    border.CornerRadius = new CornerRadius(8);
+                    border.Margin = new Thickness(2);
+                };
+                border.MouseLeave += (s, e) =>
+                {
+                    border.BorderBrush = normalBorder;
+                    border.Width = 14;
+                    border.Height = 14;
+                    border.CornerRadius = new CornerRadius(7);
+                    border.Margin = new Thickness(3);
+                };
+
+                PaletteGridPanel.Children.Add(border);
+            }
         }
     }
 
@@ -278,7 +700,6 @@ public partial class DesignerWindow : Window
     // ════════════════════════════════════════════════════════════
     private void SelectColor(string key)
     {
-        // Deselect old
         if (_activeKey != null && _rowElements.TryGetValue(_activeKey, out var oldEl))
         {
             oldEl.row.Background = Brushes.Transparent;
@@ -287,19 +708,15 @@ public partial class DesignerWindow : Window
 
         _activeKey = key;
 
-        // Highlight new
         if (_rowElements.TryGetValue(key, out var el))
         {
-            var accentBrush = (Brush)FindResource("Accent");
-            el.row.Background = new SolidColorBrush(Color.FromArgb(0x20, 0x7A, 0x9E, 0xC0));
+            el.row.SetResourceReference(Border.BackgroundProperty, "ActiveBg");
             el.label.Foreground = (Brush)FindResource("TextPrimary");
 
-            // Update header
             TxtActiveLabel.Text = _colorDefs.First(c => c.Key == key).Label;
             TxtActiveKey.Text = key;
         }
 
-        // Sync picker with current value
         if (_colorValues.TryGetValue(key, out var hex) && ThemeService.TryParseColor(hex, out var color))
         {
             _suppressPickerUpdate = true;
@@ -312,148 +729,29 @@ public partial class DesignerWindow : Window
     }
 
     // ════════════════════════════════════════════════════════════
-    //  COLOR PICKER: SV CANVAS
-    // ════════════════════════════════════════════════════════════
-    private void RenderSvCanvas()
-    {
-        double w = SvCanvas.ActualWidth;
-        double h = SvCanvas.ActualHeight;
-        if (w < 1 || h < 1) return;
-
-        int pw = (int)w;
-        int ph = (int)h;
-        var wb = new WriteableBitmap(pw, ph, 96, 96, PixelFormats.Bgra32, null);
-        var pixels = new byte[pw * ph * 4];
-
-        for (int y = 0; y < ph; y++)
-        {
-            double val = 1.0 - (double)y / (ph - 1);
-            for (int x = 0; x < pw; x++)
-            {
-                double sat = (double)x / (pw - 1);
-                HsvToRgb(_currentHue, sat, val, out var r, out var g, out var b);
-                int i = (y * pw + x) * 4;
-                pixels[i + 0] = b;
-                pixels[i + 1] = g;
-                pixels[i + 2] = r;
-                pixels[i + 3] = 255;
-            }
-        }
-
-        wb.WritePixels(new Int32Rect(0, 0, pw, ph), pixels, pw * 4, 0);
-        SvCanvas.Background = new ImageBrush(wb) { Stretch = Stretch.Fill };
-    }
-
-    private void SvCanvas_MouseDown(object sender, MouseButtonEventArgs e)
-    {
-        _svDragging = true;
-        SvCanvas.CaptureMouse();
-        UpdateSvFromMouse(e.GetPosition(SvCanvas));
-    }
-
-    private void SvCanvas_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (_svDragging) UpdateSvFromMouse(e.GetPosition(SvCanvas));
-    }
-
-    private void SvCanvas_MouseUp(object sender, MouseButtonEventArgs e)
-    {
-        _svDragging = false;
-        SvCanvas.ReleaseMouseCapture();
-    }
-
-    private void UpdateSvFromMouse(Point pos)
-    {
-        double w = SvCanvas.ActualWidth;
-        double h = SvCanvas.ActualHeight;
-        if (w < 1 || h < 1) return;
-
-        double sat = Math.Clamp(pos.X / w, 0, 1);
-        double val = Math.Clamp(1.0 - pos.Y / h, 0, 1);
-
-        PositionSvThumb(sat, val);
-        HsvToRgb(_currentHue, sat, val, out var r, out var g, out var b);
-        var color = Color.FromRgb(r, g, b);
-        ApplyColorFromPicker(color);
-    }
-
-    private void PositionSvThumb(double sat, double val)
-    {
-        double w = SvCanvas.ActualWidth;
-        double h = SvCanvas.ActualHeight;
-        Canvas.SetLeft(SvThumb, sat * w - SvThumb.Width / 2);
-        Canvas.SetTop(SvThumb, (1 - val) * h - SvThumb.Height / 2);
-    }
-
-    // ════════════════════════════════════════════════════════════
-    //  COLOR PICKER: HUE STRIP
-    // ════════════════════════════════════════════════════════════
-    private void HueCanvas_MouseDown(object sender, MouseButtonEventArgs e)
-    {
-        _hueDragging = true;
-        HueCanvas.CaptureMouse();
-        UpdateHueFromMouse(e.GetPosition(HueCanvas));
-    }
-
-    private void HueCanvas_MouseMove(object sender, MouseEventArgs e)
-    {
-        if (_hueDragging) UpdateHueFromMouse(e.GetPosition(HueCanvas));
-    }
-
-    private void HueCanvas_MouseUp(object sender, MouseButtonEventArgs e)
-    {
-        _hueDragging = false;
-        HueCanvas.ReleaseMouseCapture();
-    }
-
-    private void UpdateHueFromMouse(Point pos)
-    {
-        double h = HueCanvas.ActualHeight;
-        if (h < 1) return;
-
-        _currentHue = Math.Clamp(pos.Y / h * 360.0, 0, 360);
-        PositionHueThumb();
-        RenderSvCanvas();
-
-        // Recalc color from current SV position
-        double w = SvCanvas.ActualWidth;
-        double sh = SvCanvas.ActualHeight;
-        if (w > 0 && sh > 0)
-        {
-            double sat = Math.Clamp((Canvas.GetLeft(SvThumb) + SvThumb.Width / 2) / w, 0, 1);
-            double val = Math.Clamp(1.0 - (Canvas.GetTop(SvThumb) + SvThumb.Height / 2) / sh, 0, 1);
-            HsvToRgb(_currentHue, sat, val, out var r, out var g, out var b);
-            ApplyColorFromPicker(Color.FromRgb(r, g, b));
-        }
-    }
-
-    private void PositionHueThumb()
-    {
-        double h = HueCanvas.ActualHeight;
-        double y = _currentHue / 360.0 * h;
-        Canvas.SetTop(HueThumb, y - HueThumb.Height / 2);
-        HueThumb.Width = HueCanvas.ActualWidth;
-        Canvas.SetLeft(HueThumb, 0);
-    }
-
-    // ════════════════════════════════════════════════════════════
     //  APPLY COLOR FROM PICKER
     // ════════════════════════════════════════════════════════════
     private void ApplyColorFromPicker(Color color)
     {
         if (_activeKey == null) return;
-        var hex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        string hex;
+        if (_activeKey == "BgDeep")
+        {
+            byte alpha = (byte)Math.Round(SliderGlassOpacity.Value / 100.0 * 255.0);
+            hex = $"#{alpha:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
+        }
+        else
+        {
+            hex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+        }
 
         _colorValues[_activeKey] = hex;
 
-        // Update swatch in tree
         if (_rowElements.TryGetValue(_activeKey, out var el))
             el.swatch.Background = new SolidColorBrush(color);
 
-        // Update header swatch
         ActiveSwatch.Background = new SolidColorBrush(color);
 
-        // Update text fields without re-triggering picker
         _suppressPickerUpdate = true;
         TxtHexInput.Text = hex;
         SyncRgbFields(color);
@@ -471,6 +769,30 @@ public partial class DesignerWindow : Window
         var hex = TxtHexInput.Text.Trim();
         if (!ThemeService.TryParseColor(hex, out var color)) return;
         if (_activeKey == null) return;
+
+        if (_activeKey == "BgDeep")
+        {
+            if (hex.StartsWith("#") && hex.Length == 9)
+            {
+                try
+                {
+                    byte alpha = Convert.ToByte(hex.Substring(1, 2), 16);
+                    double opacityPct = (alpha / 255.0) * 100.0;
+                    _suppressPickerUpdate = true;
+                    SliderGlassOpacity.Value = Math.Clamp(opacityPct, 50, 100);
+                    TxtGlassOpacityPct.Text = $"{(int)SliderGlassOpacity.Value}%";
+                    _suppressPickerUpdate = false;
+                }
+                catch { }
+            }
+            else if (hex.StartsWith("#") && hex.Length == 7)
+            {
+                _suppressPickerUpdate = true;
+                SliderGlassOpacity.Value = 100;
+                TxtGlassOpacityPct.Text = "100%";
+                _suppressPickerUpdate = false;
+            }
+        }
 
         _colorValues[_activeKey] = hex;
 
@@ -494,7 +816,17 @@ public partial class DesignerWindow : Window
         if (!byte.TryParse(TxtB.Text, out var b)) return;
 
         var color = Color.FromRgb(r, g, b);
-        var hex = $"#{r:X2}{g:X2}{b:X2}";
+        string hex;
+        if (_activeKey == "BgDeep")
+        {
+            byte alpha = (byte)Math.Round(SliderGlassOpacity.Value / 100.0 * 255.0);
+            hex = $"#{alpha:X2}{r:X2}{g:X2}{b:X2}";
+        }
+        else
+        {
+            hex = $"#{r:X2}{g:X2}{b:X2}";
+        }
+
         if (_activeKey == null) return;
 
         _colorValues[_activeKey] = hex;
@@ -525,21 +857,200 @@ public partial class DesignerWindow : Window
         RgbToHsv(color.R, color.G, color.B, out var h, out var s, out var v);
         _currentHue = h;
 
-        if (SvCanvas.ActualWidth > 0)
+        _suppressPickerUpdate = true;
+        if (SliderHue != null) SliderHue.Value = h;
+        if (SliderSat != null) SliderSat.Value = s * 100.0;
+        if (SliderVal != null) SliderVal.Value = v * 100.0;
+        _suppressPickerUpdate = false;
+
+        UpdateSliderTracks(h, s, v);
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  HSL SLIDERS LOGIC
+    // ════════════════════════════════════════════════════════════
+    private void SliderHue_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (TxtHueVal == null) return;
+        TxtHueVal.Text = $"{(int)SliderHue.Value}°";
+        if (_suppressPickerUpdate) return;
+        OnSliderValueChanged();
+    }
+
+    private void SliderSat_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (TxtSatVal == null) return;
+        TxtSatVal.Text = $"{(int)SliderSat.Value}%";
+        if (_suppressPickerUpdate) return;
+        OnSliderValueChanged();
+    }
+
+    private void SliderVal_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (TxtValVal == null) return;
+        TxtValVal.Text = $"{(int)SliderVal.Value}%";
+        if (_suppressPickerUpdate) return;
+        OnSliderValueChanged();
+    }
+
+    private void OnSliderValueChanged()
+    {
+        double h = SliderHue.Value;
+        double s = SliderSat.Value / 100.0;
+        double v = SliderVal.Value / 100.0;
+
+        UpdateSliderTracks(h, s, v);
+
+        HsvToRgb(h, s, v, out var r, out var g, out var b);
+        var color = Color.FromRgb(r, g, b);
+        ApplyColorFromPicker(color);
+    }
+
+    private void UpdateSliderTracks(double h, double s, double v)
+    {
+        if (SatBrush == null || ValBrush == null) return;
+
+        HsvToRgb(h, 0, v, out var rStart, out var gStart, out var bStart);
+        HsvToRgb(h, 1, v, out var rEnd, out var gEnd, out var bEnd);
+
+        if (SatBrush.IsFrozen)
         {
-            RenderSvCanvas();
-            PositionSvThumb(s, v);
-            PositionHueThumb();
+            var newSatBrush = new LinearGradientBrush(Color.FromRgb(rStart, gStart, bStart), Color.FromRgb(rEnd, gEnd, bEnd), 0);
+            SliderSat.Background = newSatBrush;
         }
         else
         {
-            // Defer until layout is ready
-            SvCanvas.Loaded += (_, _) =>
-            {
-                RenderSvCanvas();
-                PositionSvThumb(s, v);
-                PositionHueThumb();
-            };
+            SatBrush.GradientStops[0].Color = Color.FromRgb(rStart, gStart, bStart);
+            SatBrush.GradientStops[1].Color = Color.FromRgb(rEnd, gEnd, bEnd);
+        }
+
+        HsvToRgb(h, s, 0, out var rValStart, out var gValStart, out var bValStart);
+        HsvToRgb(h, s, 1, out var rValEnd, out var gValEnd, out var bValEnd);
+
+        if (ValBrush.IsFrozen)
+        {
+            var newValBrush = new LinearGradientBrush(Color.FromRgb(rValStart, gValStart, bValStart), Color.FromRgb(rValEnd, gValEnd, bValEnd), 0);
+            SliderVal.Background = newValBrush;
+        }
+        else
+        {
+            ValBrush.GradientStops[0].Color = Color.FromRgb(rValStart, gValStart, bValStart);
+            ValBrush.GradientStops[1].Color = Color.FromRgb(rValEnd, gValEnd, bValEnd);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════
+    //  TAB TRANSITION HELPERS
+    // ════════════════════════════════════════════════════════════
+    private FrameworkElement? GetPanel(int index) => index switch
+    {
+        0 => PanelPresets,
+        1 => PanelCustom,
+        2 => PanelCustomize,
+        3 => PanelStyle,
+        _ => null
+    };
+
+    private TranslateTransform? GetTranslate(int index) => index switch
+    {
+        0 => TransPresets,
+        1 => TransCustom,
+        2 => TransCustomize,
+        3 => TransStyle,
+        _ => null
+    };
+
+    private void AnimateTabTransition(int oldIndex, int newIndex)
+    {
+        var oldPanel = GetPanel(oldIndex);
+        var newPanel = GetPanel(newIndex);
+        var oldTrans = GetTranslate(oldIndex);
+        var newTrans = GetTranslate(newIndex);
+
+        if (oldPanel == null || newPanel == null || oldTrans == null || newTrans == null) return;
+
+        bool forward = newIndex > oldIndex;
+        double startX = forward ? 30 : -30;
+        double endX = forward ? -30 : 30;
+
+        var duration = TimeSpan.FromMilliseconds(250);
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+        // 1. Outgoing Panel
+        oldPanel.IsHitTestVisible = false;
+        var oldFade = new DoubleAnimation(0, duration) { EasingFunction = ease };
+        var oldMove = new DoubleAnimation(endX, duration) { EasingFunction = ease };
+
+        oldFade.Completed += (s, e) =>
+        {
+            if (oldPanel.Opacity == 0) oldPanel.Visibility = Visibility.Collapsed;
+        };
+
+        oldPanel.BeginAnimation(OpacityProperty, oldFade);
+        oldTrans.BeginAnimation(TranslateTransform.XProperty, oldMove);
+
+        // 2. Incoming Panel
+        newPanel.Visibility = Visibility.Visible;
+        newPanel.IsHitTestVisible = true;
+        newPanel.Opacity = 0;
+        newTrans.X = startX;
+
+        var newFade = new DoubleAnimation(1, duration) { EasingFunction = ease };
+        var newMove = new DoubleAnimation(0, duration) { EasingFunction = ease };
+
+        newPanel.BeginAnimation(OpacityProperty, newFade);
+        newTrans.BeginAnimation(TranslateTransform.XProperty, newMove);
+    }
+
+    private void ApplyThemeCorrectly(ThemeSettings theme)
+    {
+        if (theme.AdaptiveThumbnailTheme && Owner is MainWindow mainWin && mainWin.LastDominantColor is Color dominantColor)
+        {
+            ThemeService.Apply(MainWindow.CreateAdaptiveTheme(theme, dominantColor));
+        }
+        else
+        {
+            ThemeService.Apply(theme);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  TAB NAVIGATION
+    // ════════════════════════════════════════════════════════════
+    private void Tab_Checked(object sender, RoutedEventArgs e)
+    {
+        if (PanelPresets == null || PanelCustom == null || PanelCustomize == null || PanelStyle == null) return;
+
+        int targetIndex = 0;
+        if (TabCustomBtn.IsChecked == true) targetIndex = 1;
+        else if (TabCustomizeBtn.IsChecked == true) targetIndex = 2;
+        else if (TabStyleBtn.IsChecked == true) targetIndex = 3;
+
+        if (!IsLoaded)
+        {
+            _currentTabIndex = targetIndex;
+            PanelPresets.Visibility = targetIndex == 0 ? Visibility.Visible : Visibility.Collapsed;
+            PanelCustom.Visibility = targetIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
+            PanelCustomize.Visibility = targetIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
+            PanelStyle.Visibility = targetIndex == 3 ? Visibility.Visible : Visibility.Collapsed;
+            PanelPresets.Opacity = targetIndex == 0 ? 1 : 0;
+            PanelCustom.Opacity = targetIndex == 1 ? 1 : 0;
+            PanelCustomize.Opacity = targetIndex == 2 ? 1 : 0;
+            PanelStyle.Opacity = targetIndex == 3 ? 1 : 0;
+            return;
+        }
+
+        if (targetIndex == _currentTabIndex) return;
+
+        int oldIndex = _currentTabIndex;
+        _currentTabIndex = targetIndex;
+
+        AnimateTabTransition(oldIndex, targetIndex);
+
+        if (targetIndex == 2 && _activeKey != null)
+        {
+            SelectColor(_activeKey);
         }
     }
 
@@ -559,9 +1070,19 @@ public partial class DesignerWindow : Window
         SetPreviewFg(PrvBtnText, "TextPrimary");
         SetPreviewBg(PrvInput, "BgElevated");
         SetPreviewBorder(PrvInput, "BorderSub");
-        SetPreviewFg(PrvInputText, "TextSec");
+        if (PrvInputText != null) SetPreviewFg(PrvInputText, "TextSec");
         SetPreviewBg(PrvDotOk, "SuccessGreen");
         SetPreviewBg(PrvDotErr, "ErrorRed");
+
+        if (PrvTextHeading != null) SetPreviewFg(PrvTextHeading, "TextPrimary");
+        if (PrvContentCard != null)
+        {
+            SetPreviewBg(PrvContentCard, "BgSurface");
+            SetPreviewBorder(PrvContentCard, "BorderSub");
+        }
+        if (PrvProgressFill != null) SetPreviewBg(PrvProgressFill, "Accent");
+
+        ApplyThemeCorrectly(ReadTheme());
     }
 
     private void SetPreviewBg(Border b, string key)
@@ -582,12 +1103,74 @@ public partial class DesignerWindow : Window
             t.Foreground = new SolidColorBrush(c);
     }
 
+    private void ChkAdaptiveTheme_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressPickerUpdate) return;
+        UpdatePreview();
+    }
+
+    private void BlurCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressSettingsUpdate) return;
+
+        var settings = Services.SettingsService.Current;
+        settings.BlurMainWindow = ChkBlurMain.IsChecked == true;
+        settings.BlurEditor = ChkBlurEditor.IsChecked == true;
+        settings.BlurSettings = ChkBlurSettings.IsChecked == true;
+        settings.BlurLogViewer = ChkBlurLogViewer.IsChecked == true;
+        settings.BlurDevConsole = ChkBlurDevConsole.IsChecked == true;
+        settings.BlurDescEditor = ChkBlurDescEditor.IsChecked == true;
+
+        Services.SettingsService.Save(settings);
+    }
+
+    private void SliderGlassOpacity_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (TxtGlassOpacityPct == null) return;
+        TxtGlassOpacityPct.Text = $"{(int)SliderGlassOpacity.Value}%";
+        if (_suppressPickerUpdate) return;
+
+        if (_colorValues.TryGetValue("BgDeep", out var hex) && ThemeService.TryParseColor(hex, out var color))
+        {
+            byte alpha = (byte)Math.Round(SliderGlassOpacity.Value / 100.0 * 255.0);
+            var newHex = $"#{alpha:X2}{color.R:X2}{color.G:X2}{color.B:X2}";
+            _colorValues["BgDeep"] = newHex;
+
+            if (_activeKey == "BgDeep")
+            {
+                _suppressPickerUpdate = true;
+                TxtHexInput.Text = newHex;
+                _suppressPickerUpdate = false;
+            }
+
+            UpdatePreview();
+        }
+    }
+
     // ════════════════════════════════════════════════════════════
     //  THEME LOAD / READ
     // ════════════════════════════════════════════════════════════
     private void LoadTheme(ThemeSettings theme)
     {
         _suppressPickerUpdate = true;
+
+        if (ChkAdaptiveTheme != null)
+        {
+            ChkAdaptiveTheme.IsChecked = theme.AdaptiveThumbnailTheme;
+        }
+
+        if (theme.AnimationLevel == "None")
+        {
+            if (RadAnimNone != null) RadAnimNone.IsChecked = true;
+        }
+        else if (theme.AnimationLevel == "Reduced")
+        {
+            if (RadAnimReduced != null) RadAnimReduced.IsChecked = true;
+        }
+        else
+        {
+            if (RadAnimStandard != null) RadAnimStandard.IsChecked = true;
+        }
 
         SetValue("BgDeep", theme.BgDeep);
         SetValue("BgSurface", theme.BgSurface);
@@ -602,9 +1185,30 @@ public partial class DesignerWindow : Window
         SetValue("SuccessGreen", theme.SuccessGreen);
         SetValue("ErrorRed", theme.ErrorRed);
 
+        // Load Glass Opacity from theme.BgDeep
+        double opacity = 100;
+        if (!string.IsNullOrEmpty(theme.BgDeep) && theme.BgDeep.StartsWith("#"))
+        {
+            if (theme.BgDeep.Length == 9) // #AARRGGBB
+            {
+                try
+                {
+                    byte alpha = Convert.ToByte(theme.BgDeep.Substring(1, 2), 16);
+                    opacity = (alpha / 255.0) * 100.0;
+                }
+                catch { }
+            }
+        }
+
+        if (SliderGlassOpacity != null)
+        {
+            SliderGlassOpacity.Value = Math.Clamp(opacity, 50, 100);
+            if (TxtGlassOpacityPct != null)
+                TxtGlassOpacityPct.Text = $"{(int)SliderGlassOpacity.Value}%";
+        }
+
         _suppressPickerUpdate = false;
 
-        // Refresh active selection
         if (_activeKey != null)
             SelectColor(_activeKey);
 
@@ -618,8 +1222,17 @@ public partial class DesignerWindow : Window
             el.swatch.Background = new SolidColorBrush(c);
     }
 
+    private void AnimLevel_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_suppressPickerUpdate || _suppressSettingsUpdate) return;
+        var theme = ReadTheme();
+        ThemeService.Apply(theme);
+    }
+
     private ThemeSettings ReadTheme() => new()
     {
+        AdaptiveThumbnailTheme = ChkAdaptiveTheme?.IsChecked == true,
+        AnimationLevel = RadAnimNone?.IsChecked == true ? "None" : (RadAnimReduced?.IsChecked == true ? "Reduced" : "Standard"),
         BgDeep = GetHex("BgDeep"),
         BgSurface = GetHex("BgSurface"),
         BgCard = GetHex("BgCard"),
@@ -680,8 +1293,22 @@ public partial class DesignerWindow : Window
         if (_isAnimatingClose) return;
         _isAnimatingClose = true;
         _pendingResult = result;
+        if (result != true)
+        {
+            ApplyThemeCorrectly(_originalTheme);
+        }
+        IsSaved = (result == true);
         FluidMotion.MorphClose(RootBorder, WindowScale, WindowTranslate, _originRect, this,
-            () => DialogResult = _pendingResult);
+            () => {
+                try
+                {
+                    DialogResult = _pendingResult;
+                }
+                catch (System.InvalidOperationException)
+                {
+                    Close();
+                }
+            });
     }
 
     // ════════════════════════════════════════════════════════════

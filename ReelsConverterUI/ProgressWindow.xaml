@@ -3,14 +3,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Fortschritt" Width="420"
         SizeToContent="Height"
-        Icon="app.ico"
+        Icon="Icons/ProgressWindow.ico"
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent" ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner">
 
     <Border x:Name="RootBorder" CornerRadius="16"
-            Background="{StaticResource BgDeep}"
-            BorderBrush="{StaticResource BorderSub}" BorderThickness="1"
+            Background="{DynamicResource BgDeep}"
+            BorderBrush="#25FFFFFF" BorderThickness="1"
             Opacity="0" RenderTransformOrigin="0.5,0.5">
         <Border.RenderTransform>
             <TransformGroup>
@@ -28,40 +28,47 @@
             </Grid.RowDefinitions>
 
             <!-- Title bar -->
-            <Border Grid.Row="0" Background="#141416" CornerRadius="16,16,0,0"
+            <Border Grid.Row="0" Background="Transparent" CornerRadius="16,16,0,0"
                     MouseLeftButtonDown="TitleBar_Drag">
-                <TextBlock Text="Fortschritt" FontWeight="SemiBold"
-                           FontSize="12" Foreground="{StaticResource TextPrimary}"
-                           VerticalAlignment="Center" Margin="12,0,0,0"/>
+                <Grid>
+                    <TextBlock Text="Fortschritt" FontWeight="SemiBold"
+                               FontSize="12" Foreground="{DynamicResource TextPrimary}"
+                               VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    <Button x:Name="BtnCloseWindow" HorizontalAlignment="Right"
+                            Style="{StaticResource IconBtn}"
+                            Foreground="{DynamicResource TextSec}"
+                            Width="30" Height="30" Margin="0,2,4,0"
+                            ToolTip="Schließen (Läuft im Hintergrund weiter)"
+                            Click="CloseWindow_Click">
+                        <TextBlock Text="✕" FontSize="11"/>
+                    </Button>
+                </Grid>
             </Border>
 
             <!-- Progress content -->
             <StackPanel Grid.Row="1" Margin="16,12,16,0">
                 <Grid x:Name="RowMsgPct" Margin="0,0,0,8">
                     <TextBlock x:Name="TxtProgressMsg"
-                               Foreground="{StaticResource TextPrimary}"
+                               Foreground="{DynamicResource TextPrimary}"
                                TextTrimming="CharacterEllipsis"/>
                     <TextBlock x:Name="TxtProgressPct" FontSize="13" FontWeight="Bold"
-                               Foreground="{StaticResource Accent}"
+                               Foreground="{DynamicResource Accent}"
                                HorizontalAlignment="Right"/>
                 </Grid>
 
                 <Border x:Name="ProgressTrack" Height="6" CornerRadius="3"
-                        Background="{StaticResource BgElevated}">
+                        Background="#15FFFFFF">
                     <Border x:Name="ProgressFill" CornerRadius="3"
-                            HorizontalAlignment="Left" Width="0">
-                        <Border.Background>
-                            <SolidColorBrush Color="#7A9EC0"/>
-                        </Border.Background>
-                    </Border>
+                            HorizontalAlignment="Left" Width="0"
+                            Background="{DynamicResource Accent}"/>
                 </Border>
 
                 <Grid x:Name="RowDetail" Margin="0,6,0,0">
                     <TextBlock x:Name="TxtEta" FontSize="11"
-                               Foreground="{StaticResource TextSec}"
+                               Foreground="{DynamicResource TextSec}"
                                HorizontalAlignment="Left"/>
                     <TextBlock x:Name="TxtProgressDetail"
-                               Foreground="{StaticResource TextSec}"
+                               Foreground="{DynamicResource TextSec}"
                                TextTrimming="CharacterEllipsis"
                                Margin="55,0,0,0"/>
                 </Grid>
@@ -76,7 +83,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="TxtCountdown" FontSize="11"
-                           Foreground="{StaticResource TextSec}"
+                           Foreground="{DynamicResource TextSec}"
                            VerticalAlignment="Center"
                            Visibility="Collapsed"/>
                 <Button x:Name="BtnOpenFolder" Grid.Column="1"
@@ -96,9 +103,9 @@
             <!-- Console (toggleable) -->
             <TextBox x:Name="TxtConsole" Grid.Row="3"
                      Margin="16,0,16,12"
-                     Background="#0D0D0F"
-                     BorderBrush="{StaticResource BorderSub}" BorderThickness="1"
-                     Foreground="#7A9EC0"
+                     Background="#A80D0E12"
+                     BorderBrush="#15FFFFFF" BorderThickness="1"
+                     Foreground="{DynamicResource Accent}"
                      FontFamily="Consolas"
                      FontSize="10"
                      IsReadOnly="True"
@@ -111,3 +118,5 @@
         </Grid>
     </Border>
 </Window>
+
+

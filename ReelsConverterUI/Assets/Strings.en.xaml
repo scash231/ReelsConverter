@@ -127,6 +127,7 @@
     <!-- Progress window -->
     <sys:String x:Key="BtnOpenFolder">📂 Open Folder</sys:String>
     <sys:String x:Key="BtnOpenFileLocation">Open File Location</sys:String>
+    <sys:String x:Key="BtnOpenInEditor">Open in Editor</sys:String>
 
     <!-- Theme Designer -->
     <sys:String x:Key="DesignerTitle">Theme Designer</sys:String>
@@ -137,10 +138,13 @@
     <sys:String x:Key="DesignerAccent">ACCENT COLORS</sys:String>
     <sys:String x:Key="DesignerText">TEXT</sys:String>
     <sys:String x:Key="DesignerStatus">STATUS</sys:String>
+    <sys:String x:Key="DesignerAdaptiveTheme">Adaptive Thumbnail Colors</sys:String>
+    <sys:String x:Key="DesignerAdaptiveThemeTip">Change the color of the whole application to match the currently loaded video's thumbnail</sys:String>
     <sys:String x:Key="DesignerReset">Default</sys:String>
 
     <!-- Settings tabs -->
     <sys:String x:Key="SettingsTabGeneral">General</sys:String>
+    <sys:String x:Key="SettingsTabBackdrops">Liquid Glass</sys:String>
     <sys:String x:Key="SettingsTabUpload">Upload</sys:String>
     <sys:String x:Key="SettingsTabDownload">Download</sys:String>
     <sys:String x:Key="SettingsTabAdvanced">Advanced</sys:String>
@@ -149,6 +153,10 @@
     <sys:String x:Key="SettingsAlwaysOnTop">Always on top</sys:String>
     <sys:String x:Key="SettingsAutoFetch">Auto-fetch metadata on paste</sys:String>
     <sys:String x:Key="SettingsNotifyComplete">Notify on completion</sys:String>
+    <sys:String x:Key="SettingsAutoShowProgressTitle">Auto-show progress window</sys:String>
+    <sys:String x:Key="SettingsAutoShowProgressDesc">Show detailed progress window automatically when starting a job</sys:String>
+    <sys:String x:Key="SettingsHideScrollbarsTitle">Hide Scrollbars</sys:String>
+    <sys:String x:Key="SettingsHideScrollbarsDesc">Completely hide scrollbars (scrolling still works via mouse wheel)</sys:String>
     <sys:String x:Key="SettingsYoutubeDefaults">YOUTUBE DEFAULTS</sys:String>
     <sys:String x:Key="SettingsFingerprintBypass">FINGERPRINT BYPASS</sys:String>
     <sys:String x:Key="SettingsFpEnable">Enable</sys:String>
@@ -203,5 +211,24 @@
     <sys:String x:Key="EditorSubStatusGenerating">Running speech recognition…</sys:String>
     <sys:String x:Key="EditorSubStatusDone">Subtitles generated ✓</sys:String>
     <sys:String x:Key="EditorSubStatusEmpty">No speech detected.</sys:String>
+    <sys:String x:Key="DragDropOverlayText">Drop link here to load metadata</sys:String>
+
+    <!-- Error Status Popup -->
+    <sys:String x:Key="ErrPopupTitle">Error Details</sys:String>
+    <sys:String x:Key="ErrPopupFix">Suggested Fix:</sys:String>
+    <sys:String x:Key="ErrPopupCopy">Copy Details</sys:String>
+    <sys:String x:Key="ErrPopupConsole">Show Logs</sys:String>
+    <sys:String x:Key="ErrPopupRestart">Restart Backend</sys:String>
+    <sys:String x:Key="ErrPopupCopySuccess">Error details copied to clipboard.</sys:String>
+    <sys:String x:Key="ErrPopupRestarting">Restarting backend service...</sys:String>
+
+    <!-- New Dev Console Commands -->
+    <sys:String x:Key="CmdRestartDesc">Restart the Python backend service and health check</sys:String>
+    <sys:String x:Key="CmdPingDesc">Ping backend server and measure latency</sys:String>
+    <sys:String x:Key="CmdConfigDesc">Display current app configuration settings</sys:String>
+    <sys:String x:Key="CmdPythonDesc">Check local Python path and version</sys:String>
+    <sys:String x:Key="CmdFfmpegDesc">Check local FFmpeg path and version</sys:String>
+    <sys:String x:Key="CmdOpenDesc">Open directories (downloads or appdata)</sys:String>
 
 </ResourceDictionary>
+

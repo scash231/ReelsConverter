@@ -63,4 +63,29 @@ public sealed class AppSettings
     // Developer
     [JsonPropertyName("dev_console_enabled")]
     public bool DevConsoleEnabled { get; set; } = false;
+
+    // Window Blur (Liquid Glass) Settings
+    [JsonPropertyName("blur_main_window")]
+    public bool BlurMainWindow { get; set; } = false;
+
+    [JsonPropertyName("blur_editor")]
+    public bool BlurEditor { get; set; } = false;
+
+    [JsonPropertyName("blur_settings")]
+    public bool BlurSettings { get; set; } = false;
+
+    [JsonPropertyName("blur_log_viewer")]
+    public bool BlurLogViewer { get; set; } = false;
+
+    [JsonPropertyName("blur_dev_console")]
+    public bool BlurDevConsole { get; set; } = false;
+
+    [JsonPropertyName("blur_desc_editor")]
+    public bool BlurDescEditor { get; set; } = false;
+
+    [JsonPropertyName("auto_show_progress_window")]
+    public bool AutoShowProgressWindow { get; set; } = true;
+
+    [JsonPropertyName("hide_scrollbars")]
+    public bool HideScrollbars { get; set; } = false;
 }

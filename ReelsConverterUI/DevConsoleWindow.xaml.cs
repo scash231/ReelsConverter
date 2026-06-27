@@ -29,6 +29,10 @@ public partial class DevConsoleWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (Services.SettingsService.Current.BlurDevConsole)
+        {
+            Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+        }
         FluidMotion.MorphOpen(RootBorder, WinScale, WinTranslate, _originRect, this);
         TxtConsole.ScrollToEnd();
         TxtInput.Focus();
@@ -54,7 +58,70 @@ public partial class DevConsoleWindow : Window
     private void Help_Click(object s, RoutedEventArgs e)
     {
         ConsoleHelpPopup.PlacementTarget = (UIElement)s;
-        ConsoleHelpPopup.IsOpen = !ConsoleHelpPopup.IsOpen;
+        if (!ConsoleHelpPopup.IsOpen)
+        {
+            ConsoleHelpPopup.IsOpen = true;
+            AnimatePopupIn(HelpPopupBorder);
+        }
+        else
+        {
+            AnimatePopupOut(HelpPopupBorder, () => ConsoleHelpPopup.IsOpen = false);
+        }
+    }
+
+    private static void AnimatePopupIn(System.Windows.Controls.Border border)
+    {
+        var spring = AppleSpringEase.Interactive;
+        var bouncy = AppleSpringEase.Bouncy;
+        var smooth = AppleSpringEase.Gentle;
+        var group = (TransformGroup)border.RenderTransform;
+        var st = (ScaleTransform)group.Children[0];
+        var tt = (TranslateTransform)group.Children[1];
+
+        // Reset corner radius to bubbly state
+        FluidMotion.SetCornerRadiusImmediate(border, 55);
+
+        border.BeginAnimation(UIElement.OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220))
+            { EasingFunction = smooth });
+        st.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(0.96, 1, TimeSpan.FromMilliseconds(420))
+            { EasingFunction = spring });
+        st.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(0.96, 1, TimeSpan.FromMilliseconds(420))
+            { EasingFunction = spring });
+        tt.BeginAnimation(TranslateTransform.YProperty,
+            new DoubleAnimation(-4, 0, TimeSpan.FromMilliseconds(420))
+            { EasingFunction = spring });
+
+        // Morph corner radius to normal rounded corner (12) using a spring
+        FluidMotion.AnimateCornerRadius(border, 12, TimeSpan.FromMilliseconds(550), bouncy);
+    }
+
+    private static void AnimatePopupOut(System.Windows.Controls.Border border, Action onDone)
+    {
+        var ease = AppleSpringEase.Snappy;
+        var group = (TransformGroup)border.RenderTransform;
+        var st = (ScaleTransform)group.Children[0];
+        var tt = (TranslateTransform)group.Children[1];
+
+        // Morph corner radius back to bubbly state (55) quickly
+        FluidMotion.AnimateCornerRadius(border, 55, TimeSpan.FromMilliseconds(160), ease);
+
+        var opAnim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(160))
+        { EasingFunction = ease };
+        opAnim.Completed += (_, _) => onDone();
+
+        border.BeginAnimation(UIElement.OpacityProperty, opAnim);
+        st.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(1, 0.96, TimeSpan.FromMilliseconds(160))
+            { EasingFunction = ease });
+        st.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(1, 0.96, TimeSpan.FromMilliseconds(160))
+            { EasingFunction = ease });
+        tt.BeginAnimation(TranslateTransform.YProperty,
+            new DoubleAnimation(0, -4, TimeSpan.FromMilliseconds(160))
+            { EasingFunction = ease });
     }
 
     private void Minimize_Click(object s, RoutedEventArgs e)

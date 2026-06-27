@@ -29,6 +29,8 @@ public partial class ProgressWindow : Window
     public bool IsLogOpen => TxtConsole.Visibility == Visibility.Visible;
     public string LogContent => TxtConsole.Text;
 
+    public event EventHandler? OnHiddenInBackground;
+
     public ProgressWindow(CancellationTokenSource cts, Rect originRect)
     {
         InitializeComponent();
@@ -39,6 +41,15 @@ public partial class ProgressWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        // Retrieve the theme's deep background brush and apply it with transparency for a dynamic glass tint
+        var deepBrush = TryFindResource("BgDeep") as SolidColorBrush;
+        if (deepBrush != null)
+        {
+            var color = deepBrush.Color;
+            RootBorder.Background = new SolidColorBrush(Color.FromArgb(158, color.R, color.G, color.B));
+        }
+
+        Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
         FluidMotion.MorphOpen(RootBorder, WinScale, WinTranslate, _originRect, this);
     }
 
@@ -231,20 +242,62 @@ public partial class ProgressWindow : Window
         }
     }
 
+    public void EnsureLogOpen()
+    {
+        if (TxtConsole.Visibility != Visibility.Visible)
+        {
+            ToggleLog();
+        }
+    }
+
     private void ToggleLog_Click(object s, RoutedEventArgs e) => ToggleLog();
+
+    public void ShowWithAnimation()
+    {
+        Show();
+        WindowState = WindowState.Normal;
+        Activate();
+        _isAnimatingClose = false;
+        try { Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder); } catch { }
+        FluidMotion.MorphOpen(RootBorder, WinScale, WinTranslate, _originRect, this);
+    }
+
+    private void CloseWindow_Click(object s, RoutedEventArgs e)
+    {
+        CloseWithAnimation(realClose: false);
+    }
 
     protected override void OnClosing(CancelEventArgs e)
     {
-        if (!_isAnimatingClose) { e.Cancel = true; CloseWithAnimation(); }
+        if (!_isAnimatingClose) 
+        { 
+            e.Cancel = true; 
+            CloseWithAnimation(realClose: _done); 
+        }
         base.OnClosing(e);
     }
 
-    private void CloseWithAnimation()
+    private void CloseWithAnimation() => CloseWithAnimation(realClose: true);
+
+    private void CloseWithAnimation(bool realClose)
     {
         if (_isAnimatingClose) return;
         _isAnimatingClose = true;
+        _countdownRemaining = 0;
         _countdownTimer?.Stop();
         FluidMotion.MorphClose(RootBorder, WinScale, WinTranslate, _originRect, this,
-            () => Close());
+            () =>
+            {
+                if (realClose)
+                {
+                    Close();
+                }
+                else
+                {
+                    _isAnimatingClose = false;
+                    Hide();
+                    OnHiddenInBackground?.Invoke(this, EventArgs.Empty);
+                }
+            });
     }
 }

@@ -127,6 +127,7 @@
     <!-- Progress window -->
     <sys:String x:Key="BtnOpenFolder">📂 Ordner öffnen</sys:String>
     <sys:String x:Key="BtnOpenFileLocation">Datei-Speicherort öffnen</sys:String>
+    <sys:String x:Key="BtnOpenInEditor">In Editor öffnen</sys:String>
 
     <!-- Theme Designer -->
     <sys:String x:Key="DesignerTitle">Theme Designer</sys:String>
@@ -137,10 +138,13 @@
     <sys:String x:Key="DesignerAccent">AKZENTFARBEN</sys:String>
     <sys:String x:Key="DesignerText">TEXT</sys:String>
     <sys:String x:Key="DesignerStatus">STATUS</sys:String>
+    <sys:String x:Key="DesignerAdaptiveTheme">Adaptive Thumbnail-Farben</sys:String>
+    <sys:String x:Key="DesignerAdaptiveThemeTip">Ganze Anwendung an das Thumbnail des geladenen Videos anpassen</sys:String>
     <sys:String x:Key="DesignerReset">Standard</sys:String>
 
     <!-- Settings tabs -->
     <sys:String x:Key="SettingsTabGeneral">Allgemein</sys:String>
+    <sys:String x:Key="SettingsTabBackdrops">Liquid Glass</sys:String>
     <sys:String x:Key="SettingsTabUpload">Upload</sys:String>
     <sys:String x:Key="SettingsTabDownload">Download</sys:String>
     <sys:String x:Key="SettingsTabAdvanced">Erweitert</sys:String>
@@ -149,6 +153,10 @@
     <sys:String x:Key="SettingsAlwaysOnTop">Immer im Vordergrund</sys:String>
     <sys:String x:Key="SettingsAutoFetch">Metadaten automatisch laden</sys:String>
     <sys:String x:Key="SettingsNotifyComplete">Benachrichtigung bei Fertigstellung</sys:String>
+    <sys:String x:Key="SettingsAutoShowProgressTitle">Fortschrittsfenster auto. anzeigen</sys:String>
+    <sys:String x:Key="SettingsAutoShowProgressDesc">Das detaillierte Fortschrittsfenster beim Starten eines Exports/Downloads automatisch öffnen</sys:String>
+    <sys:String x:Key="SettingsHideScrollbarsTitle">Bildlaufleisten ausblenden</sys:String>
+    <sys:String x:Key="SettingsHideScrollbarsDesc">Bildlaufleisten komplett verbergen (Scrollen per Mausrad weiterhin möglich)</sys:String>
     <sys:String x:Key="SettingsYoutubeDefaults">YOUTUBE STANDARD</sys:String>
     <sys:String x:Key="SettingsFingerprintBypass">FINGERPRINT-BYPASS</sys:String>
     <sys:String x:Key="SettingsFpEnable">Aktivieren</sys:String>
@@ -203,5 +211,24 @@
     <sys:String x:Key="EditorSubStatusGenerating">Spracherkennung läuft…</sys:String>
     <sys:String x:Key="EditorSubStatusDone">Untertitel generiert ✓</sys:String>
     <sys:String x:Key="EditorSubStatusEmpty">Keine Sprache erkannt.</sys:String>
+    <sys:String x:Key="DragDropOverlayText">Link hier ablegen, um Metadaten zu laden</sys:String>
+
+    <!-- Error Status Popup -->
+    <sys:String x:Key="ErrPopupTitle">Fehlerdetails</sys:String>
+    <sys:String x:Key="ErrPopupFix">Lösungsvorschlag:</sys:String>
+    <sys:String x:Key="ErrPopupCopy">Details kopieren</sys:String>
+    <sys:String x:Key="ErrPopupConsole">Logs anzeigen</sys:String>
+    <sys:String x:Key="ErrPopupRestart">Backend neustarten</sys:String>
+    <sys:String x:Key="ErrPopupCopySuccess">Fehlerdetails in die Zwischenablage kopiert.</sys:String>
+    <sys:String x:Key="ErrPopupRestarting">Backend-Dienst wird neu gestartet...</sys:String>
+
+    <!-- New Dev Console Commands -->
+    <sys:String x:Key="CmdRestartDesc">Startet den Python-Backend-Dienst neu und führt Healthcheck aus</sys:String>
+    <sys:String x:Key="CmdPingDesc">Backend-Server anpingen und Latenz messen</sys:String>
+    <sys:String x:Key="CmdConfigDesc">Aktuelle App-Konfiguration anzeigen</sys:String>
+    <sys:String x:Key="CmdPythonDesc">Prüft lokalen Python-Pfad und Version</sys:String>
+    <sys:String x:Key="CmdFfmpegDesc">Prüft lokalen FFmpeg-Pfad und Version</sys:String>
+    <sys:String x:Key="CmdOpenDesc">Ordner öffnen (downloads oder appdata)</sys:String>
 
 </ResourceDictionary>
+

@@ -13,6 +13,7 @@ public partial class DescriptionEditorWindow : Window
     private readonly Rect _originRect;
     private bool _isAnimatingClose;
     private bool? _pendingResult;
+    public bool IsSaved { get; private set; } = false;
 
     public DescriptionEditorWindow(string initialText, Rect originRect)
     {
@@ -25,6 +26,10 @@ public partial class DescriptionEditorWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (Services.SettingsService.Current.BlurDescEditor)
+        {
+            Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+        }
         FluidMotion.MorphOpen(RootBorder, PopScale, PopTranslate, _originRect, this);
         TxtEditor.Focus();
     }
@@ -50,7 +55,17 @@ public partial class DescriptionEditorWindow : Window
         _isAnimatingClose = true;
         if (result == true) Description = TxtEditor.Text;
         _pendingResult = result;
+        IsSaved = (result == true);
         FluidMotion.MorphClose(RootBorder, PopScale, PopTranslate, _originRect, this,
-            () => DialogResult = _pendingResult);
+            () => {
+                try
+                {
+                    DialogResult = _pendingResult;
+                }
+                catch (System.InvalidOperationException)
+                {
+                    Close();
+                }
+            });
     }
 }

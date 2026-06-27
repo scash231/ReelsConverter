@@ -8,7 +8,7 @@ Improvements:
  - Dedicated ThreadPoolExecutor for job execution
  - Synchronous job runner (avoids async/executor ping-pong overhead)
  - Faster SSE polling interval (0.15 s)
- - Version 3.0.0
+ - Version 3.1.0
 """
 from __future__ import annotations
 import subprocess, sys, os
@@ -64,7 +64,7 @@ async def _lifespan(app: FastAPI):
     _pool.shutdown(wait=False)
 
 
-app = FastAPI(title="ReelsConverter API", version="3.0.0", lifespan=_lifespan)
+app = FastAPI(title="ReelsConverter API", version="3.1.0", lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )
@@ -102,7 +102,7 @@ async def health():
     import yt_dlp, shutil
     return {
         "status": "ok",
-        "version": "3.0.0",
+        "version": "3.1.0",
         "python": sys.version.split()[0],
         "yt_dlp": yt_dlp.version.__version__,
         "ffmpeg": shutil.which("ffmpeg") is not None,

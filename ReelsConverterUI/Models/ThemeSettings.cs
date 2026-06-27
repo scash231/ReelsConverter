@@ -39,4 +39,13 @@ public sealed class ThemeSettings
 
     [JsonPropertyName("button_grad")]
     public string ButtonGrad { get; set; } = "#38485A";
+
+    [JsonPropertyName("adaptive_thumbnail_theme")]
+    public bool AdaptiveThumbnailTheme { get; set; } = false;
+
+    [JsonPropertyName("animation_level")]
+    public string AnimationLevel { get; set; } = "Standard";
+
+    [JsonPropertyName("preset_name")]
+    public string PresetName { get; set; } = "Custom Theme";
 }

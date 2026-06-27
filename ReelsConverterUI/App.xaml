@@ -1,6 +1,7 @@
 <Application x:Class="ReelsConverterUI.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:sys="clr-namespace:System;assembly=mscorlib"
              xmlns:anim="clr-namespace:ReelsConverterUI.Animations"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
@@ -10,10 +11,10 @@
             </ResourceDictionary.MergedDictionaries>
 
             <!-- ══════ Color Palette ══════ -->
-            <SolidColorBrush x:Key="BgDeep"      Color="#141416"/>
-            <SolidColorBrush x:Key="BgSurface"   Color="#1B1B1E"/>
-            <SolidColorBrush x:Key="BgCard"       Color="#202024"/>
-            <SolidColorBrush x:Key="BgElevated"   Color="#2A2A2E"/>
+            <SolidColorBrush x:Key="BgDeep"      Color="#E6141416"/>
+            <SolidColorBrush x:Key="BgSurface"   Color="#BD1B1B1E"/>
+            <SolidColorBrush x:Key="BgCard"       Color="#AC202024"/>
+            <SolidColorBrush x:Key="BgElevated"   Color="#CD2A2A2E"/>
             <SolidColorBrush x:Key="BorderSub"    Color="#38383D"/>
             <SolidColorBrush x:Key="Accent"       Color="#7A9EC0"/>
             <SolidColorBrush x:Key="AccentPink"   Color="#7A9EC0"/>
@@ -32,11 +33,14 @@
                 <GradientStop Color="#22222A" Offset="1"/>
             </LinearGradientBrush>
 
+            <sys:Double x:Key="GlobalScrollBarWidth">6</sys:Double>
+            <sys:Double x:Key="GlobalScrollBarHeight">6</sys:Double>
+
             <!-- ══════ ScrollBar ══════ -->
             <Style TargetType="ScrollBar">
                 <Setter Property="Background" Value="Transparent"/>
-                <Setter Property="Width" Value="6"/>
-                <Setter Property="MinWidth" Value="6"/>
+                <Setter Property="Width" Value="{DynamicResource GlobalScrollBarWidth}"/>
+                <Setter Property="MinWidth" Value="{DynamicResource GlobalScrollBarWidth}"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ScrollBar">
@@ -45,7 +49,7 @@
                                     <Thumb>
                                         <Thumb.Template>
                                             <ControlTemplate TargetType="Thumb">
-                                                <Border CornerRadius="3" Background="#38383D" Margin="0,1"/>
+                                                <Border CornerRadius="3" Background="{DynamicResource BorderSub}" Margin="0,1"/>
                                             </ControlTemplate>
                                         </Thumb.Template>
                                     </Thumb>
@@ -57,18 +61,18 @@
                 <Style.Triggers>
                     <Trigger Property="Orientation" Value="Horizontal">
                         <Setter Property="Width" Value="Auto"/>
-                        <Setter Property="Height" Value="6"/>
-                        <Setter Property="MinHeight" Value="6"/>
+                        <Setter Property="Height" Value="{DynamicResource GlobalScrollBarHeight}"/>
+                        <Setter Property="MinHeight" Value="{DynamicResource GlobalScrollBarHeight}"/>
                     </Trigger>
                 </Style.Triggers>
             </Style>
 
-            <!-- ══════ Global TextBox ══════ -->
+            <!-- ══════ Global TextBox (glass) ══════ -->
             <Style TargetType="TextBox">
-                <Setter Property="Background" Value="{StaticResource BgElevated}"/>
-                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
-                <Setter Property="CaretBrush" Value="{StaticResource Accent}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource BorderSub}"/>
+                <Setter Property="Background" Value="{DynamicResource InputBg}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                <Setter Property="CaretBrush" Value="{DynamicResource Accent}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderSub}"/>
                 <Setter Property="BorderThickness" Value="0.5"/>
                 <Setter Property="Padding" Value="8,6"/>
                 <Setter Property="FontSize" Value="12"/>
@@ -83,7 +87,7 @@
                                 <Grid>
                                     <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
                                     <TextBlock x:Name="Placeholder" Text="{TemplateBinding Tag}"
-                                               Foreground="{StaticResource TextSec}" Opacity="0.6"
+                                               Foreground="{DynamicResource TextSec}" Opacity="0.6"
                                                FontSize="{TemplateBinding FontSize}"
                                                VerticalAlignment="Center" IsHitTestVisible="False"
                                                Visibility="Collapsed"/>
@@ -93,12 +97,57 @@
                                 <Trigger Property="Text" Value="">
                                     <Setter TargetName="Placeholder" Property="Visibility" Value="Visible"/>
                                 </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BorderSub}"/>
+                                </Trigger>
                                 <Trigger Property="IsFocused" Value="True">
-                                    <Setter TargetName="Bd" Property="BorderBrush"
-                                            Value="{StaticResource Accent}"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActiveBg}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ══════ Glass Pill TextBox (URL Input) ══════ -->
+            <Style x:Key="GlassPillTextBox" TargetType="TextBox">
+                <Setter Property="Background" Value="{DynamicResource InputBg}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                <Setter Property="CaretBrush" Value="{DynamicResource Accent}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderSub}"/>
+                <Setter Property="BorderThickness" Value="0.5"/>
+                <Setter Property="Padding" Value="14,8"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Border x:Name="Bd" CornerRadius="50"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}">
+                                <Grid>
+                                    <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="Placeholder" Text="{TemplateBinding Tag}"
+                                               Foreground="{DynamicResource TextSec}" Opacity="0.6"
+                                               FontSize="{TemplateBinding FontSize}"
+                                               VerticalAlignment="Center" IsHitTestVisible="False"
+                                               Visibility="Collapsed"/>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="Text" Value="">
+                                    <Setter TargetName="Placeholder" Property="Visibility" Value="Visible"/>
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#42424A"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BorderSub}"/>
+                                </Trigger>
+                                <Trigger Property="IsFocused" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActiveBg}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -109,26 +158,28 @@
             <!-- ══════ ComboBox Toggle Button ══════ -->
             <ControlTemplate x:Key="ComboToggle" TargetType="ToggleButton">
                 <Border x:Name="Bd" CornerRadius="8"
-                        Background="{StaticResource BgElevated}"
-                        BorderBrush="{StaticResource BorderSub}"
-                        BorderThickness="1">
-                    <Path x:Name="Arrow" Fill="{StaticResource TextSec}"
+                        Background="{DynamicResource InputBg}"
+                        BorderBrush="{DynamicResource BorderSub}"
+                        BorderThickness="0.5">
+                    <Path x:Name="Arrow" Fill="{DynamicResource TextSec}"
                           HorizontalAlignment="Right" VerticalAlignment="Center"
                           Margin="0,0,8,0" Data="M 0 0 L 4 4 L 8 0 Z"/>
                 </Border>
                 <ControlTemplate.Triggers>
                     <Trigger Property="IsMouseOver" Value="True">
-                        <Setter TargetName="Bd" Property="BorderBrush" Value="#42424A"/>
+                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}"/>
+                        <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BorderSub}"/>
                     </Trigger>
                     <Trigger Property="IsChecked" Value="True">
-                        <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActiveBg}"/>
+                        <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
                     </Trigger>
                 </ControlTemplate.Triggers>
             </ControlTemplate>
 
             <!-- ══════ Global ComboBox ══════ -->
             <Style TargetType="ComboBox">
-                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
                 <Setter Property="FontSize" Value="12"/>
                 <Setter Property="SnapsToDevicePixels" Value="True"/>
                 <Setter Property="anim:DropdownAnimBehavior.IsEnabled" Value="True"/>
@@ -148,8 +199,8 @@
                                 <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}"
                                        AllowsTransparency="True" Focusable="False"
                                        PopupAnimation="None" Placement="Bottom">
-                                    <Border Background="#992A2A2E"
-                                            BorderBrush="#50505A"
+                                    <Border Background="{DynamicResource PopupBg}"
+                                            BorderBrush="{DynamicResource PopupBorder}"
                                             BorderThickness="1" CornerRadius="10"
                                             Margin="0" Padding="0,4"
                                             MinWidth="{TemplateBinding ActualWidth}"
@@ -167,7 +218,7 @@
             </Style>
 
             <Style TargetType="ComboBoxItem">
-                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
                 <Setter Property="Padding" Value="8,5"/>
                 <Setter Property="FontSize" Value="12"/>
                 <Setter Property="Template">
@@ -179,10 +230,10 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsHighlighted" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#353538"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}"/>
                                 </Trigger>
                                 <Trigger Property="IsSelected" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#353538"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActiveBg}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -192,31 +243,91 @@
 
             <!-- ══════ Global CheckBox ══════ -->
             <Style TargetType="CheckBox">
-                <Setter Property="Foreground" Value="{StaticResource TextSec}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
                 <Setter Property="FontSize" Value="11"/>
                 <Setter Property="Cursor" Value="Hand"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="CheckBox">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Border x:Name="Box" Width="14" Height="14" CornerRadius="4"
-                                        Background="{StaticResource BgElevated}"
-                                        BorderBrush="{StaticResource BorderSub}"
-                                        BorderThickness="1" Margin="0,0,6,0">
-                                    <Path x:Name="Check" Data="M 2 5 L 5 8 L 10 2"
-                                          Stroke="{StaticResource TextPrimary}" StrokeThickness="1.5"
-                                          Visibility="Collapsed"
-                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
+                                <Grid Margin="0,0,6,0">
+                                    <!-- Base Layer -->
+                                    <Border x:Name="BoxBase" Width="14" Height="14" CornerRadius="4"
+                                            Background="{DynamicResource BgElevated}"
+                                            BorderBrush="{DynamicResource BorderSub}"
+                                            BorderThickness="1"/>
+                                    <!-- Hover Highlight Layer -->
+                                    <Border x:Name="BoxHover" Width="14" Height="14" CornerRadius="4"
+                                            BorderBrush="#48484E"
+                                            BorderThickness="1" Opacity="0"/>
+                                    <!-- Active/Checked Highlight Layer -->
+                                    <Border x:Name="BoxActive" Width="14" Height="14" CornerRadius="4"
+                                            BorderBrush="{DynamicResource Accent}"
+                                            BorderThickness="1" Opacity="0"/>
+                                    
+                                    <!-- Checkmark Path -->
+                                    <Path x:Name="Check" Data="M 2.5 5.5 L 5.5 8.5 L 10.5 3.5"
+                                          Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          Opacity="0"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          RenderTransformOrigin="0.5,0.5">
+                                        <Path.RenderTransform>
+                                            <ScaleTransform ScaleX="0" ScaleY="0"/>
+                                        </Path.RenderTransform>
+                                    </Path>
+                                </Grid>
                                 <ContentPresenter VerticalAlignment="Center"/>
                             </StackPanel>
                             <ControlTemplate.Triggers>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
-                                    <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                                </Trigger>
+                                <!-- Hover state -->
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Box" Property="BorderBrush" Value="#48484E"/>
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="BoxHover" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="BoxHover" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.12"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
+                                </Trigger>
+                                
+                                <!-- Checked state -->
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="BoxActive" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15"/>
+                                                <DoubleAnimation Storyboard.TargetName="Check" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.1"/>
+                                                <DoubleAnimation Storyboard.TargetName="Check" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1" Duration="0:0:0.18">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <BackEase EasingMode="EaseOut" Amplitude="0.8"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="Check" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1" Duration="0:0:0.18">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <BackEase EasingMode="EaseOut" Amplitude="0.8"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="BoxActive" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.15"/>
+                                                <DoubleAnimation Storyboard.TargetName="Check" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.1"/>
+                                                <DoubleAnimation Storyboard.TargetName="Check" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="0" Duration="0:0:0.15"/>
+                                                <DoubleAnimation Storyboard.TargetName="Check" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="0" Duration="0:0:0.15"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -227,7 +338,7 @@
             <!-- ══════ Flat Icon Button ══════ -->
             <Style x:Key="IconBtn" TargetType="Button">
                 <Setter Property="Background" Value="Transparent"/>
-                <Setter Property="Foreground" Value="{StaticResource TextSec}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="Cursor" Value="Hand"/>
                 <Setter Property="Padding" Value="4"/>
@@ -240,7 +351,7 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#2A2A2E"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -250,8 +361,9 @@
 
             <!-- ══════ Glass Icon Button (liquid glass) ══════ -->
             <Style x:Key="GlassIconBtn" TargetType="Button">
-                <Setter Property="Background" Value="#10FFFFFF"/>
-                <Setter Property="Foreground" Value="{StaticResource TextSec}"/>
+                <Setter Property="Background" Value="{DynamicResource InputBg}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderSub}"/>
                 <Setter Property="BorderThickness" Value="0.5"/>
                 <Setter Property="Cursor" Value="Hand"/>
                 <Setter Property="Padding" Value="4"/>
@@ -260,15 +372,15 @@
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" CornerRadius="8" Padding="{TemplateBinding Padding}"
                                     Background="{TemplateBinding Background}"
-                                    BorderBrush="#18FFFFFF" BorderThickness="0.5">
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="0.5">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#1AFFFFFF"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}"/>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#24FFFFFF"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActiveBg}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -278,9 +390,9 @@
 
             <!-- ══════ Outlined Button ══════ -->
             <Style x:Key="OutlineBtn" TargetType="Button">
-                <Setter Property="Foreground" Value="{StaticResource TextSec}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
                 <Setter Property="Background" Value="Transparent"/>
-                <Setter Property="BorderBrush" Value="{StaticResource BorderSub}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderSub}"/>
                 <Setter Property="BorderThickness" Value="0.5"/>
                 <Setter Property="FontSize" Value="12"/>
                 <Setter Property="Cursor" Value="Hand"/>
@@ -297,10 +409,10 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#1E1E22"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}"/>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#2A2A2E"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActiveBg}"/>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
@@ -313,7 +425,7 @@
 
             <!-- ══════ Glass Pill Button (Log) ══════ -->
             <Style x:Key="GlassPillBtn" TargetType="Button">
-                <Setter Property="Foreground" Value="{StaticResource TextSec}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
                 <Setter Property="FontSize" Value="10"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="Cursor" Value="Hand"/>
@@ -321,17 +433,17 @@
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="Bd" CornerRadius="10" Padding="10,4"
-                                    Background="#10FFFFFF"
-                                    BorderBrush="#18FFFFFF" BorderThickness="0.5">
+                                    Background="{DynamicResource InputBg}"
+                                    BorderBrush="{DynamicResource BorderSub}" BorderThickness="0.5">
                                 <ContentPresenter HorizontalAlignment="Center"
                                                   VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#1AFFFFFF"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}"/>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#24FFFFFF"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActiveBg}"/>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Bd" Property="Opacity" Value="0.35"/>
@@ -344,9 +456,9 @@
 
             <!-- ══════ Card Border Style (glass) ══════ -->
             <Style x:Key="Card" TargetType="Border">
-                <Setter Property="Background" Value="{StaticResource BgCard}"/>
+                <Setter Property="Background" Value="{DynamicResource BgCard}"/>
                 <Setter Property="CornerRadius" Value="16"/>
-                <Setter Property="BorderBrush" Value="#18FFFFFF"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderSub}"/>
                 <Setter Property="BorderThickness" Value="0.5"/>
                 <Setter Property="Padding" Value="14"/>
                 <Setter Property="Margin" Value="0,0,0,6"/>
@@ -356,29 +468,35 @@
             <Style x:Key="Lbl" TargetType="TextBlock">
                 <Setter Property="FontSize" Value="10"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
-                <Setter Property="Foreground" Value="{StaticResource TextSec}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
                 <Setter Property="Margin" Value="0,0,0,6"/>
             </Style>
 
             <!-- ══════ Start Button (glass) ══════ -->
             <Style x:Key="GradBtn" TargetType="Button">
                 <Setter Property="Height" Value="40"/>
-                <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
                 <Setter Property="FontSize" Value="13"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="Cursor" Value="Hand"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="Bd" CornerRadius="14" Padding="16,0"
-                                    BorderBrush="#18FFFFFF" BorderThickness="0.5"
+                            <Border x:Name="Bd" CornerRadius="20" Padding="16,0"
+                                    BorderThickness="0.5"
                                     RenderTransformOrigin="0.5,0.5">
                                 <Border.Background>
                                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                        <GradientStop Color="#3E5068" Offset="0"/>
-                                        <GradientStop Color="#344458" Offset="1"/>
+                                        <GradientStop Color="#36FFFFFF" Offset="0"/>
+                                        <GradientStop Color="#24FFFFFF" Offset="1"/>
                                     </LinearGradientBrush>
                                 </Border.Background>
+                                <Border.BorderBrush>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#50FFFFFF" Offset="0"/>
+                                        <GradientStop Color="#20FFFFFF" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.BorderBrush>
                                 <Border.RenderTransform>
                                     <ScaleTransform/>
                                 </Border.RenderTransform>
@@ -386,25 +504,242 @@
                                                   VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
+                                <!-- Idle State -->
+                                <MultiTrigger>
+                                    <MultiTrigger.Conditions>
+                                        <Condition Property="IsMouseOver" Value="False"/>
+                                        <Condition Property="IsPressed" Value="False"/>
+                                    </MultiTrigger.Conditions>
+                                    <MultiTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.15">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.0" Duration="0:0:0.15">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </MultiTrigger.EnterActions>
+                                </MultiTrigger>
+                                <!-- Hover State -->
+                                <MultiTrigger>
+                                    <MultiTrigger.Conditions>
+                                        <Condition Property="IsMouseOver" Value="True"/>
+                                        <Condition Property="IsPressed" Value="False"/>
+                                    </MultiTrigger.Conditions>
                                     <Setter TargetName="Bd" Property="Background">
                                         <Setter.Value>
                                             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                <GradientStop Color="#4A5E76" Offset="0"/>
-                                                <GradientStop Color="#3C5068" Offset="1"/>
+                                                <GradientStop Color="#4AFFFFFF" Offset="0"/>
+                                                <GradientStop Color="#33FFFFFF" Offset="1"/>
                                             </LinearGradientBrush>
                                         </Setter.Value>
                                     </Setter>
-                                </Trigger>
+                                    <Setter TargetName="Bd" Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect Color="White" BlurRadius="12" Opacity="0.18" ShadowDepth="0"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <MultiTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.03" Duration="0:0:0.15">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.03" Duration="0:0:0.15">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </MultiTrigger.EnterActions>
+                                </MultiTrigger>
+                                <!-- Pressed State -->
                                 <Trigger Property="IsPressed" Value="True">
                                     <Setter TargetName="Bd" Property="Background">
                                         <Setter.Value>
                                             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                <GradientStop Color="#344458" Offset="0"/>
-                                                <GradientStop Color="#2C3A4C" Offset="1"/>
+                                                <GradientStop Color="#5AFFFFFF" Offset="0"/>
+                                                <GradientStop Color="#44FFFFFF" Offset="1"/>
                                             </LinearGradientBrush>
                                         </Setter.Value>
                                     </Setter>
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.96" Duration="0:0:0.1">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="0.96" Duration="0:0:0.1">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.35"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ══════ Action Button (liquid glass, rounded rect) ══════ -->
+            <Style x:Key="GradRectBtn" TargetType="Button">
+                <Setter Property="Height" Value="32"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" CornerRadius="10" Padding="12,0"
+                                    BorderThickness="0.5"
+                                    RenderTransformOrigin="0.5,0.5">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#36FFFFFF" Offset="0"/>
+                                        <GradientStop Color="#24FFFFFF" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Border.BorderBrush>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#50FFFFFF" Offset="0"/>
+                                        <GradientStop Color="#20FFFFFF" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.BorderBrush>
+                                <Border.RenderTransform>
+                                    <ScaleTransform/>
+                                </Border.RenderTransform>
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <!-- Idle State -->
+                                <MultiTrigger>
+                                    <MultiTrigger.Conditions>
+                                        <Condition Property="IsMouseOver" Value="False"/>
+                                        <Condition Property="IsPressed" Value="False"/>
+                                    </MultiTrigger.Conditions>
+                                    <MultiTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.15">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.0" Duration="0:0:0.15">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </MultiTrigger.EnterActions>
+                                </MultiTrigger>
+                                <!-- Hover State -->
+                                <MultiTrigger>
+                                    <MultiTrigger.Conditions>
+                                        <Condition Property="IsMouseOver" Value="True"/>
+                                        <Condition Property="IsPressed" Value="False"/>
+                                    </MultiTrigger.Conditions>
+                                    <Setter TargetName="Bd" Property="Background">
+                                        <Setter.Value>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                <GradientStop Color="#4AFFFFFF" Offset="0"/>
+                                                <GradientStop Color="#33FFFFFF" Offset="1"/>
+                                            </LinearGradientBrush>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Setter TargetName="Bd" Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect Color="White" BlurRadius="12" Opacity="0.18" ShadowDepth="0"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <MultiTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.03" Duration="0:0:0.15">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="1.03" Duration="0:0:0.15">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </MultiTrigger.EnterActions>
+                                </MultiTrigger>
+                                <!-- Pressed State -->
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background">
+                                        <Setter.Value>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                                <GradientStop Color="#5AFFFFFF" Offset="0"/>
+                                                <GradientStop Color="#44FFFFFF" Offset="1"/>
+                                            </LinearGradientBrush>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.96" Duration="0:0:0.1">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="Bd"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                                 To="0.96" Duration="0:0:0.1">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CircleEase EasingMode="EaseOut"/>
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter TargetName="Bd" Property="Opacity" Value="0.35"/>
@@ -417,11 +752,17 @@
 
             <!-- ══════ Tab Header Button ══════ -->
             <Style x:Key="TabBtn" TargetType="RadioButton">
-                <Setter Property="Foreground" Value="{StaticResource TextSec}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
                 <Setter Property="FontSize" Value="12"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="Cursor" Value="Hand"/>
                 <Setter Property="Margin" Value="0,0,2,0"/>
+                <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+                <Setter Property="RenderTransform">
+                    <Setter.Value>
+                        <ScaleTransform ScaleX="1" ScaleY="1"/>
+                    </Setter.Value>
+                </Setter>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RadioButton">
@@ -433,15 +774,15 @@
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="Bd" Property="Background"
-                                            Value="{StaticResource BgElevated}"/>
+                                            Value="{DynamicResource BgElevated}"/>
                                     <Setter TargetName="Bd" Property="BorderBrush"
-                                            Value="{StaticResource BorderSub}"/>
+                                            Value="{DynamicResource BorderSub}"/>
                                     <Setter Property="Foreground"
-                                            Value="{StaticResource TextPrimary}"/>
+                                            Value="{DynamicResource TextPrimary}"/>
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="Bd" Property="Background"
-                                            Value="#222226"/>
+                                            Value="{DynamicResource HoverBg}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -451,14 +792,14 @@
 
             <!-- ══════ Mode Card Toggle ══════ -->
             <Style x:Key="ModeCard" TargetType="RadioButton">
-                <Setter Property="Foreground" Value="{StaticResource TextSec}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
                 <Setter Property="Cursor" Value="Hand"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RadioButton">
                             <Border x:Name="Bd" CornerRadius="14" Padding="12"
-                                    Background="{StaticResource BgElevated}"
-                                    BorderThickness="0.5" BorderBrush="{StaticResource BorderSub}"
+                                    Background="{DynamicResource BgElevated}"
+                                    BorderThickness="0.5" BorderBrush="{DynamicResource BorderSub}"
                                     RenderTransformOrigin="0.5,0.5">
                                 <Border.RenderTransform>
                                     <ScaleTransform/>
@@ -468,12 +809,12 @@
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="Bd" Property="BorderBrush"
-                                            Value="{StaticResource Accent}"/>
+                                            Value="{DynamicResource Accent}"/>
                                     <Setter Property="Foreground"
-                                            Value="{StaticResource TextPrimary}"/>
+                                            Value="{DynamicResource TextPrimary}"/>
                                 </Trigger>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="#2E2E34"/>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -483,13 +824,13 @@
 
             <!-- ══════ iOS 26 Segmented Control Button ══════ -->
             <Style x:Key="SegmentedBtn" TargetType="RadioButton">
-                <Setter Property="Foreground" Value="{StaticResource TextSec}"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextSec}"/>
                 <Setter Property="FontSize" Value="12"/>
                 <Setter Property="Cursor" Value="Hand"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RadioButton">
-                            <Border x:Name="Bd" CornerRadius="10" Padding="0,7"
+                            <Border x:Name="Bd" CornerRadius="35" Padding="0,7"
                                     Background="Transparent"
                                     BorderThickness="0" BorderBrush="Transparent">
                                 <ContentPresenter HorizontalAlignment="Center"
@@ -498,15 +839,156 @@
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter Property="Foreground"
-                                            Value="{StaticResource TextPrimary}"/>
+                                            Value="{DynamicResource TextPrimary}"/>
                                 </Trigger>
-                                <MultiTrigger>
-                                    <MultiTrigger.Conditions>
-                                        <Condition Property="IsMouseOver" Value="True"/>
-                                        <Condition Property="IsChecked" Value="False"/>
-                                    </MultiTrigger.Conditions>
-                                    <Setter TargetName="Bd" Property="Background" Value="#10FFFFFF"/>
-                                </MultiTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ══════ Slider Repeat Button (transparent track hit area) ══════ -->
+            <Style x:Key="SliderRepeatButtonStyle" TargetType="RepeatButton">
+                <Setter Property="OverridesDefaultStyle" Value="true" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Focusable" Value="false" />
+                <Setter Property="IsTabStop" Value="false" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RepeatButton">
+                            <Border Background="Transparent" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ══════ Slider Style (implicit, modern glass) ══════ -->
+            <Style TargetType="Slider">
+                <Setter Property="Stylus.IsPressAndHoldEnabled" Value="false" />
+                <Setter Property="Background" Value="{DynamicResource InputBg}" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+                <Setter Property="MinHeight" Value="24"/>
+                <Setter Property="IsMoveToPointEnabled" Value="True"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Slider">
+                            <Grid Background="Transparent">
+                                <Border x:Name="TrackBackground" 
+                                        Height="8" 
+                                        CornerRadius="4"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="0"
+                                        VerticalAlignment="Center">
+                                    <Border.Effect>
+                                        <DropShadowEffect Color="Black" BlurRadius="3" ShadowDepth="1" Opacity="0.25"/>
+                                    </Border.Effect>
+                                </Border>
+                                <Track x:Name="PART_Track">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="{x:Static Slider.DecreaseLarge}" Style="{StaticResource SliderRepeatButtonStyle}"/>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="{x:Static Slider.IncreaseLarge}" Style="{StaticResource SliderRepeatButtonStyle}"/>
+                                    </Track.IncreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb x:Name="Thumb" Width="18" Height="18" Focusable="False">
+                                            <Thumb.Template>
+                                                <ControlTemplate TargetType="Thumb">
+                                                    <Grid x:Name="ThumbRoot" RenderTransformOrigin="0.5,0.5">
+                                                        <Grid.RenderTransform>
+                                                            <ScaleTransform x:Name="ThumbScale" ScaleX="1.0" ScaleY="1.0"/>
+                                                        </Grid.RenderTransform>
+                                                        
+                                                        <!-- Glass visual (revealed on drag) -->
+                                                        <Ellipse x:Name="ElGlass" Fill="#28FFFFFF" Stroke="White" StrokeThickness="1.5" Opacity="0">
+                                                            <Ellipse.Effect>
+                                                                <DropShadowEffect Color="White" BlurRadius="12" ShadowDepth="0" Opacity="0.45"/>
+                                                            </Ellipse.Effect>
+                                                        </Ellipse>
+
+                                                        <!-- Normal visual (solid white, hides on drag) -->
+                                                        <Ellipse x:Name="ElNormal" Fill="White" Stroke="#E0E0E0" StrokeThickness="0.5" Opacity="1">
+                                                            <Ellipse.Effect>
+                                                                <DropShadowEffect Color="Black" BlurRadius="4" ShadowDepth="1" Opacity="0.3"/>
+                                                            </Ellipse.Effect>
+                                                        </Ellipse>
+                                                    </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <!-- Hover State -->
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Trigger.EnterActions>
+                                                                <BeginStoryboard>
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation Storyboard.TargetName="ThumbScale" Storyboard.TargetProperty="ScaleX" To="1.15" Duration="0:0:0.12">
+                                                                            <DoubleAnimation.EasingFunction><CircleEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                        </DoubleAnimation>
+                                                                        <DoubleAnimation Storyboard.TargetName="ThumbScale" Storyboard.TargetProperty="ScaleY" To="1.15" Duration="0:0:0.12">
+                                                                            <DoubleAnimation.EasingFunction><CircleEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                        </DoubleAnimation>
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </Trigger.EnterActions>
+                                                            <Trigger.ExitActions>
+                                                                <BeginStoryboard>
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation Storyboard.TargetName="ThumbScale" Storyboard.TargetProperty="ScaleX" To="1.0" Duration="0:0:0.12">
+                                                                            <DoubleAnimation.EasingFunction><CircleEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                        </DoubleAnimation>
+                                                                        <DoubleAnimation Storyboard.TargetName="ThumbScale" Storyboard.TargetProperty="ScaleY" To="1.0" Duration="0:0:0.12">
+                                                                            <DoubleAnimation.EasingFunction><CircleEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                        </DoubleAnimation>
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </Trigger.ExitActions>
+                                                            <Setter TargetName="ElNormal" Property="Cursor" Value="Hand"/>
+                                                            <Setter TargetName="ElNormal" Property="Stroke" Value="#B0B0B0"/>
+                                                        </Trigger>
+                                                        
+                                                        <!-- Drag State (Liquid Glass Morph) -->
+                                                        <Trigger Property="IsDragging" Value="True">
+                                                            <Trigger.EnterActions>
+                                                                <BeginStoryboard>
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation Storyboard.TargetName="ThumbScale" Storyboard.TargetProperty="ScaleX" To="1.45" Duration="0:0:0.18">
+                                                                            <DoubleAnimation.EasingFunction><CircleEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                        </DoubleAnimation>
+                                                                        <DoubleAnimation Storyboard.TargetName="ThumbScale" Storyboard.TargetProperty="ScaleY" To="1.45" Duration="0:0:0.18">
+                                                                            <DoubleAnimation.EasingFunction><CircleEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                        </DoubleAnimation>
+                                                                        <DoubleAnimation Storyboard.TargetName="ElNormal" Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.18"/>
+                                                                        <DoubleAnimation Storyboard.TargetName="ElGlass" Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.18"/>
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </Trigger.EnterActions>
+                                                            <Trigger.ExitActions>
+                                                                <BeginStoryboard>
+                                                                    <Storyboard>
+                                                                        <DoubleAnimation Storyboard.TargetName="ThumbScale" Storyboard.TargetProperty="ScaleX" To="1.0" Duration="0:0:0.18">
+                                                                            <DoubleAnimation.EasingFunction><CircleEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                        </DoubleAnimation>
+                                                                        <DoubleAnimation Storyboard.TargetName="ThumbScale" Storyboard.TargetProperty="ScaleY" To="1.0" Duration="0:0:0.18">
+                                                                            <DoubleAnimation.EasingFunction><CircleEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction>
+                                                                        </DoubleAnimation>
+                                                                        <DoubleAnimation Storyboard.TargetName="ElNormal" Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.18"/>
+                                                                        <DoubleAnimation Storyboard.TargetName="ElGlass" Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.18"/>
+                                                                    </Storyboard>
+                                                                </BeginStoryboard>
+                                                            </Trigger.ExitActions>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="TrackBackground" Property="Opacity" Value="0.3"/>
+                                    <Setter Property="Opacity" Value="0.5"/>
+                                </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Setter.Value>

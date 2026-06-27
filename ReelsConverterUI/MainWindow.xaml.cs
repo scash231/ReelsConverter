@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -28,8 +29,12 @@ public partial class MainWindow : Window
     private string _currentLang = "de";
     private bool _devConsoleCollapsed;
     private string? _lastDownloadedFolder;
+    private string? _lastDownloadedFile;
     private readonly List<string> _inlineCmdHistory = new();
     private int _inlineCmdHistoryIndex = -1;
+    private Color? _lastDominantColor;
+    internal Color? LastDominantColor => _lastDominantColor;
+    private bool _isLoadingFromDrag;
 
     // ── Segment pill drag state (iOS 26 interactive tracking) ──
     private bool _pillDragPending;
@@ -39,11 +44,54 @@ public partial class MainWindow : Window
     private double _pillLastMoveX;
     private DateTime _pillLastMoveTime;
 
+    private bool _isAnimatingClose;
+
     public MainWindow()
     {
         InitializeComponent();
         Loaded += OnLoaded;
-        Closing += (_, _) => { _cts?.Cancel(); _devConsoleWin?.Close(); _launcher.Dispose(); _backend.Dispose(); };
+        Closing += MainWindow_Closing;
+        SizeChanged += (_, _) => UpdateWindowGradient();
+        ThemeService.ThemeApplied += OnThemeApplied;
+    }
+
+    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        ThemeService.ThemeApplied -= OnThemeApplied;
+        if (!_isAnimatingClose)
+        {
+            e.Cancel = true;
+            CloseWithAnimation();
+        }
+    }
+
+    private void OnThemeApplied()
+    {
+        RefreshDominantColorVisuals();
+    }
+
+    private void CloseWithAnimation()
+    {
+        if (_isAnimatingClose) return;
+        _isAnimatingClose = true;
+
+        // Cleanup resources before window hides
+        _cts?.Cancel();
+        _devConsoleWin?.Close();
+        _launcher.Dispose();
+        _backend.Dispose();
+
+        var ease = AppleSpringEase.Snappy;
+        var dur = TimeSpan.FromMilliseconds(250);
+
+        var opAnim = new DoubleAnimation(1, 0, dur) { EasingFunction = ease };
+        opAnim.Completed += (s, e) => Close();
+
+        RootBorder.BeginAnimation(UIElement.OpacityProperty, opAnim);
+        WindowScale.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(1, 0.88, dur) { EasingFunction = ease });
+        WindowScale.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(1, 0.85, dur) { EasingFunction = ease });
     }
 
     // ════════════════════════════════════════════════════════════
@@ -54,6 +102,11 @@ public partial class MainWindow : Window
         ApplySettings();
         FluidMotion.SetCornerRadiusValue(SegmentIndicator, 50);
         Mode_Changed(sender, e);
+
+        if (SettingsService.Current.BlurMainWindow)
+        {
+            Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+        }
 
         Activated += (_, _) =>
         {
@@ -340,9 +393,22 @@ public partial class MainWindow : Window
 
     private void EditDescription_Click(object s, RoutedEventArgs e)
     {
+        foreach (Window w in OwnedWindows)
+        {
+            if (w is DescriptionEditorWindow existing)
+            {
+                existing.Focus();
+                return;
+            }
+        }
+
         var editor = new DescriptionEditorWindow(TxtDescription.Text, GetBtnRect((UIElement)s)) { Owner = this };
-        if (editor.ShowDialog() == true)
-            TxtDescription.Text = editor.Description;
+        editor.Closed += (sender, args) =>
+        {
+            if (editor.IsSaved)
+                TxtDescription.Text = editor.Description;
+        };
+        editor.Show();
     }
 
     // ════════════════════════════════════════════════════════════
@@ -350,7 +416,11 @@ public partial class MainWindow : Window
     // ════════════════════════════════════════════════════════════
     private async void Fetch_Click(object s, RoutedEventArgs e)
     {
-        var url = TxtUrl.Text.Trim();
+        await FetchMetadataAsync(TxtUrl.Text.Trim());
+    }
+
+    private async System.Threading.Tasks.Task FetchMetadataAsync(string url)
+    {
         if (string.IsNullOrEmpty(url)) { Warn(L("ErrNoUrl")); return; }
         if (!_backendReady) { Warn(L("ErrNoBackend")); return; }
 
@@ -407,10 +477,16 @@ public partial class MainWindow : Window
             bmp.CacheOption = BitmapCacheOption.OnLoad;
             bmp.EndInit();
 
-            if (bmp.IsDownloading)
-                bmp.DownloadCompleted += (_, _) => ApplyDominantColor(bmp);
+            if (bmp.IsDownloading || bmp.PixelWidth <= 1)
+            {
+                bmp.DownloadCompleted += (_, _) => {
+                    if (bmp.PixelWidth > 1) ApplyDominantColor(bmp);
+                };
+            }
             else
+            {
                 ApplyDominantColor(bmp);
+            }
 
             ImgThumbnail.Source = bmp;
             TxtMetaThumbFallback.Visibility = Visibility.Collapsed;
@@ -423,77 +499,194 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ApplyDominantColor(BitmapSource bmp)
+    private void RefreshDominantColorVisuals()
     {
-        try
+        if (_lastDominantColor is Color color)
         {
-            var color = GetDominantColor(bmp);
-            var baseCard = ((SolidColorBrush)FindResource("BgCard")).Color;
+            var baseCardObj = FindResource("BgCard");
+            var baseCard = baseCardObj is SolidColorBrush scb ? scb.Color : Color.FromRgb(32, 32, 36);
 
-            // Gradient: dominant tint at top (~28%) fading to base card at bottom
-            const double a = 0.28;
+            // Gradient: dominant tint at top (~65%) fading to base card at bottom
+            const double a = 0.65;
             var cardTint = Color.FromRgb(
                 (byte)(baseCard.R * (1 - a) + color.R * a),
                 (byte)(baseCard.G * (1 - a) + color.G * a),
                 (byte)(baseCard.B * (1 - a) + color.B * a));
 
-            if (BorderMeta.Background is LinearGradientBrush gradient)
+            DevLog($"Card tint calculated: {cardTint}, Base card: {baseCard}");
+
+            var gradient = new LinearGradientBrush
             {
-                FluidMotion.AnimateGradientStop(gradient.GradientStops[0], cardTint);
-                FluidMotion.AnimateGradientStop(gradient.GradientStops[1], baseCard);
-            }
-            else
-            {
-                gradient = new LinearGradientBrush
+                StartPoint = new Point(0.5, 0),
+                EndPoint = new Point(0.5, 1),
+                GradientStops = new GradientStopCollection
                 {
-                    StartPoint = new Point(0.5, 0),
-                    EndPoint = new Point(0.5, 1),
-                    GradientStops = new GradientStopCollection
-                    {
-                        new GradientStop(baseCard, 0.0),
-                        new GradientStop(baseCard, 1.0)
-                    }
-                };
-                BorderMeta.Background = gradient;
-                FluidMotion.AnimateGradientStop(gradient.GradientStops[0], cardTint);
+                    new GradientStop(cardTint, 0.0),
+                    new GradientStop(baseCard, 1.0)
+                }
+            };
+            BorderMeta.Background = gradient;
+
+            // Measure position and update window gradient
+            bool wasCollapsed = BorderMeta.Visibility == Visibility.Collapsed;
+            if (wasCollapsed)
+            {
+                BorderMeta.Visibility = Visibility.Visible;
+            }
+
+            RootBorder.UpdateLayout();
+            UpdateWindowGradient();
+
+            if (wasCollapsed)
+            {
+                BorderMeta.Visibility = Visibility.Collapsed;
             }
 
             // Stronger tint for the thumbnail container (visible in letterbox gaps)
-            var baseElev = ((SolidColorBrush)FindResource("BgElevated")).Color;
+            var baseElevObj = FindResource("BgElevated");
+            var baseElev = baseElevObj is SolidColorBrush scbElev ? scbElev.Color : Color.FromRgb(42, 42, 46);
             const double b = 0.40;
             var thumbBg = Color.FromRgb(
                 (byte)(baseElev.R * (1 - b) + color.R * b),
                 (byte)(baseElev.G * (1 - b) + color.G * b),
                 (byte)(baseElev.B * (1 - b) + color.B * b));
 
-            if (ThumbBgBorder.Background is not SolidColorBrush thumbBrush || thumbBrush.IsFrozen)
-            {
-                thumbBrush = new SolidColorBrush(baseElev);
-                ThumbBgBorder.Background = thumbBrush;
-            }
-            FluidMotion.AnimateColor(thumbBrush, thumbBg);
+            ThumbBgBorder.Background = new SolidColorBrush(thumbBg);
         }
-        catch { /* pixel read failed – keep default bg */ }
+        else
+        {
+            ResetThumbBackground();
+        }
+    }
+
+    private void ApplyDominantColor(BitmapSource bmp)
+    {
+        try
+        {
+            DevLog($"ApplyDominantColor: source size = {bmp.PixelWidth}x{bmp.PixelHeight}");
+            var color = GetDominantColor(bmp);
+            DevLog($"Dominant color extracted: {color}");
+            _lastDominantColor = color;
+
+            if (ThemeService.Current.AdaptiveThumbnailTheme)
+            {
+                ThemeService.Apply(CreateAdaptiveTheme(ThemeService.Current, color));
+            }
+            else
+            {
+                ThemeService.Apply(ThemeService.Current);
+            }
+        }
+        catch (Exception ex)
+        {
+            DevLog($"Dominant color extraction failed: {ex.Message}");
+        }
     }
 
     private void ResetThumbBackground()
     {
-        var cardDefault = ((SolidColorBrush)FindResource("BgCard")).Color;
-        if (BorderMeta.Background is LinearGradientBrush gradient)
-        {
-            FluidMotion.AnimateGradientStop(gradient.GradientStops[0], cardDefault);
-            FluidMotion.AnimateGradientStop(gradient.GradientStops[1], cardDefault);
-        }
-        else if (BorderMeta.Background is SolidColorBrush cardBrush && !cardBrush.IsFrozen)
-            FluidMotion.AnimateColor(cardBrush, cardDefault);
-        else
-            BorderMeta.Background = new SolidColorBrush(cardDefault);
+        BorderMeta.SetResourceReference(Border.BackgroundProperty, "BgCard");
+        ThumbBgBorder.SetResourceReference(Border.BackgroundProperty, "BgElevated");
 
-        var thumbDefault = ((SolidColorBrush)FindResource("BgElevated")).Color;
-        if (ThumbBgBorder.Background is SolidColorBrush thumbBrush && !thumbBrush.IsFrozen)
-            FluidMotion.AnimateColor(thumbBrush, thumbDefault);
+        _lastDominantColor = null;
+        UpdateWindowGradient();
+    }
+
+    private void UpdateWindowGradient()
+    {
+        if (_lastDominantColor is Color color)
+        {
+            double relativeX = 0.255;
+            double relativeY = 0.403;
+            try
+            {
+                if (BorderMeta.Visibility == Visibility.Visible &&
+                    ThumbBgBorder.ActualWidth > 0 && ThumbBgBorder.ActualHeight > 0 &&
+                    RootBorder.ActualWidth > 0 && RootBorder.ActualHeight > 0)
+                {
+                    var centerInThumb = new Point(ThumbBgBorder.ActualWidth / 2, ThumbBgBorder.ActualHeight / 2);
+                    var centerInRoot = ThumbBgBorder.TransformToAncestor(RootBorder).Transform(centerInThumb);
+                    relativeX = centerInRoot.X / RootBorder.ActualWidth;
+                    relativeY = centerInRoot.Y / RootBorder.ActualHeight;
+                }
+            }
+            catch (Exception ex)
+            {
+                DevLog($"Failed to compute relative thumbnail position: {ex.Message}");
+            }
+
+            double w = RootBorder.ActualWidth > 0 ? RootBorder.ActualWidth : 760;
+            double h = RootBorder.ActualHeight > 0 ? RootBorder.ActualHeight : 560;
+
+            double radiusPixels = Math.Max(w, h) * 0.85;
+            double radX = radiusPixels / w;
+            double radY = radiusPixels / h;
+
+            var windowBgObj = FindResource("BgDeep");
+            var windowBg = windowBgObj is SolidColorBrush scbWin ? scbWin.Color : Color.FromRgb(30, 30, 34);
+            const double aWin = 0.20;
+            var windowTint = Color.FromRgb(
+                (byte)(windowBg.R * (1 - aWin) + color.R * aWin),
+                (byte)(windowBg.G * (1 - aWin) + color.G * aWin),
+                (byte)(windowBg.B * (1 - aWin) + color.B * aWin));
+
+            var winGradient = new RadialGradientBrush
+            {
+                Center = new Point(relativeX, relativeY),
+                GradientOrigin = new Point(relativeX, relativeY),
+                RadiusX = radX,
+                RadiusY = radY,
+                GradientStops = new GradientStopCollection
+                {
+                    new GradientStop(windowTint, 0.0),
+                    new GradientStop(windowBg, 1.0)
+                }
+            };
+            RootBorder.Background = winGradient;
+        }
         else
-            ThumbBgBorder.Background = new SolidColorBrush(thumbDefault);
+        {
+            RootBorder.SetResourceReference(Border.BackgroundProperty, "BgDeep");
+        }
+    }
+
+    private static Color Tint(Color baseColor, Color tintColor, double ratio)
+    {
+        return Color.FromRgb(
+            (byte)(baseColor.R * (1 - ratio) + tintColor.R * ratio),
+            (byte)(baseColor.G * (1 - ratio) + tintColor.G * ratio),
+            (byte)(baseColor.B * (1 - ratio) + tintColor.B * ratio));
+    }
+
+    private static Color ParseHex(string hex)
+    {
+        if (ThemeService.TryParseColor(hex, out var c)) return c;
+        return Color.FromRgb(0, 0, 0);
+    }
+
+    private static string ToHex(Color c)
+    {
+        return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+    }
+
+    internal static ThemeSettings CreateAdaptiveTheme(ThemeSettings baseTheme, Color dominant)
+    {
+        return new ThemeSettings
+        {
+            BgDeep = ToHex(Tint(ParseHex(baseTheme.BgDeep), dominant, 0.15)),
+            BgSurface = ToHex(Tint(ParseHex(baseTheme.BgSurface), dominant, 0.18)),
+            BgCard = ToHex(Tint(ParseHex(baseTheme.BgCard), dominant, 0.22)),
+            BgElevated = ToHex(Tint(ParseHex(baseTheme.BgElevated), dominant, 0.26)),
+            BorderSub = ToHex(Tint(ParseHex(baseTheme.BorderSub), dominant, 0.30)),
+            Accent = ToHex(Tint(ParseHex(baseTheme.Accent), dominant, 0.75)),
+            AccentAlt = ToHex(Tint(ParseHex(baseTheme.AccentAlt), dominant, 0.75)),
+            ButtonGrad = ToHex(Tint(ParseHex(baseTheme.ButtonGrad), dominant, 0.65)),
+            TextPrimary = baseTheme.TextPrimary,
+            TextSec = baseTheme.TextSec,
+            SuccessGreen = baseTheme.SuccessGreen,
+            ErrorRed = baseTheme.ErrorRed,
+            AdaptiveThumbnailTheme = baseTheme.AdaptiveThumbnailTheme
+        };
     }
 
     private static Color GetDominantColor(BitmapSource bmp)
@@ -566,6 +759,7 @@ public partial class MainWindow : Window
         BtnFetch.IsEnabled = false;
         HideOpenFolderBar();
         _lastDownloadedFolder = null;
+        _lastDownloadedFile = null;
 
         _lastJobLog = string.Empty;
         _lastLogEntry = string.Empty;
@@ -586,11 +780,30 @@ public partial class MainWindow : Window
             if (!_cts.IsCancellationRequested)
                 _cts.Cancel();
         };
+        _progressWin.OnHiddenInBackground += (sender, args) =>
+        {
+            HighlightMiniProgress(true);
+        };
         BtnMainLog.IsEnabled = true;
         ShowLogButton();
-        _progressWin.Show();
+        
+        bool autoShow = SettingsService.Current.AutoShowProgressWindow;
+        if (autoShow)
+        {
+            _progressWin.Show();
+        }
+        
         _progressWin.UpdateProgress(0, "Starte…", "Verbinde mit Backend…");
         _progressWin.AppendLog("Verbinde mit Backend…");
+
+        // Premium: reset and reveal miniature progress bar capsule next to version info
+        MiniProgressFill.Width = 0;
+        FluidMotion.RevealElement(MiniProgressContainer);
+
+        if (!autoShow)
+        {
+            HighlightMiniProgress(true);
+        }
 
         try
         {
@@ -616,6 +829,7 @@ public partial class MainWindow : Window
                 {
                     var detail = "";
                     _progressWin?.UpdateProgress(status.Progress, status.Message, detail, status.Eta);
+                    FluidMotion.AnimateProgressWidth(MiniProgressFill, 80.0 * status.Progress / 100.0);
                     if (!string.IsNullOrEmpty(status.Message))
                     {
                         var entry = $"{status.Progress}% \u2013 {status.Message}";
@@ -632,18 +846,26 @@ public partial class MainWindow : Window
                         SetStatus(L("StatusCompleted"), true);
 
                         string? folderPath = null;
+                        string? filePath = null;
                         if (status.Result?.TryGetValue("file_path", out var fp) == true && fp is System.Text.Json.JsonElement je)
-                            folderPath = System.IO.Path.GetDirectoryName(je.GetString());
+                        {
+                            filePath = je.GetString();
+                            if (!string.IsNullOrEmpty(filePath))
+                                folderPath = System.IO.Path.GetDirectoryName(filePath);
+                        }
                         else if (!string.IsNullOrWhiteSpace(TxtOutputDir.Text))
+                        {
                             folderPath = TxtOutputDir.Text.Trim();
+                        }
 
                         _progressWin?.MarkDone(true, folderPath);
 
-                            _lastDownloadedFolder = folderPath;
-                            if (!string.IsNullOrEmpty(folderPath))
-                                ShowOpenFolderBar();
+                        _lastDownloadedFolder = folderPath;
+                        _lastDownloadedFile = filePath;
+                        if (!string.IsNullOrEmpty(folderPath))
+                            ShowOpenFolderBar();
 
-                            break;
+                        break;
                     }
 
                 if (status.Status == "error")
@@ -671,6 +893,7 @@ public partial class MainWindow : Window
             _currentJobId = null;
             BtnStart.IsEnabled = true;
             BtnFetch.IsEnabled = true;
+            FluidMotion.DismissElement(MiniProgressContainer);
         }
     }
 
@@ -706,14 +929,81 @@ public partial class MainWindow : Window
         });
     }
 
+    private void MiniProgress_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (_progressWin != null)
+        {
+            HighlightMiniProgress(false);
+            if (_progressWin.Visibility != Visibility.Visible)
+            {
+                _progressWin.ShowWithAnimation();
+            }
+            else
+            {
+                if (_progressWin.WindowState == WindowState.Minimized)
+                    _progressWin.WindowState = WindowState.Normal;
+                _progressWin.Activate();
+            }
+            _progressWin.EnsureLogOpen();
+        }
+    }
+
+    private void HighlightMiniProgress(bool highlight)
+    {
+        if (highlight)
+        {
+            // Set border brush to accent color
+            var accentBrush = TryFindResource("Accent") as Brush;
+            if (accentBrush != null)
+                MiniProgressContainer.BorderBrush = accentBrush;
+
+            // Update glow color to dynamic accent
+            if (accentBrush is SolidColorBrush scb)
+                MiniProgressGlow.Color = scb.Color;
+
+            // Start glow storyboard
+            if (MiniProgressContainer.Resources["GlowPulse"] is Storyboard sb)
+            {
+                sb.Begin(MiniProgressContainer, true);
+            }
+        }
+        else
+        {
+            // Reset border brush to standard transparent white
+            MiniProgressContainer.BorderBrush = new SolidColorBrush(Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF));
+
+            // Stop glow storyboard
+            if (MiniProgressContainer.Resources["GlowPulse"] is Storyboard sb)
+            {
+                sb.Stop(MiniProgressContainer);
+            }
+
+            MiniProgressGlow.BlurRadius = 0;
+            MiniProgressGlow.Opacity = 0;
+        }
+    }
+
     // ════════════════════════════════════════════════════════════
     //  SETTINGS
     // ════════════════════════════════════════════════════════════
     private void Settings_Click(object s, RoutedEventArgs e)
     {
+        foreach (Window w in OwnedWindows)
+        {
+            if (w is SettingsWindow existing)
+            {
+                existing.Focus();
+                return;
+            }
+        }
+
         var win = new SettingsWindow(GetBtnRect((UIElement)s)) { Owner = this };
-        if (win.ShowDialog() == true)
-            ApplySettings();
+        win.Closed += (sender, args) =>
+        {
+            if (win.IsSaved)
+                ApplySettings();
+        };
+        win.Show();
     }
 
     // ════════════════════════════════════════════════════════════
@@ -721,8 +1011,17 @@ public partial class MainWindow : Window
     // ════════════════════════════════════════════════════════════
     private void Editor_Click(object s, RoutedEventArgs e)
     {
+        foreach (Window w in OwnedWindows)
+        {
+            if (w is EditorWindow existing)
+            {
+                existing.Focus();
+                return;
+            }
+        }
+
         var win = new EditorWindow(GetBtnRect((UIElement)s)) { Owner = this };
-        win.ShowDialog();
+        win.Show();
     }
 
     // ════════════════════════════════════════════════════════════
@@ -730,8 +1029,34 @@ public partial class MainWindow : Window
     // ════════════════════════════════════════════════════════════
     private void Designer_Click(object s, RoutedEventArgs e)
     {
+        foreach (Window w in OwnedWindows)
+        {
+            if (w is DesignerWindow existing)
+            {
+                existing.Focus();
+                return;
+            }
+        }
+
         var win = new DesignerWindow(GetBtnRect((UIElement)s)) { Owner = this };
-        win.ShowDialog();
+        win.Closed += (sender, args) =>
+        {
+            if (win.IsSaved)
+            {
+                if (_lastDominantColor is Color color)
+                {
+                    if (ThemeService.Current.AdaptiveThumbnailTheme)
+                        ThemeService.Apply(CreateAdaptiveTheme(ThemeService.Current, color));
+                    else
+                        ThemeService.Apply(ThemeService.Current);
+                }
+                else
+                {
+                    ThemeService.Apply(ThemeService.Current);
+                }
+            }
+        };
+        win.Show();
     }
 
     private void ApplySettings()
@@ -749,6 +1074,7 @@ public partial class MainWindow : Window
         BorderDevConsole.Visibility = s.DevConsoleEnabled && _devConsoleWin == null
             ? Visibility.Visible : Visibility.Collapsed;
         if (!s.DevConsoleEnabled) _devConsoleWin?.Close();
+        SettingsService.ApplyScrollbarVisibility();
     }
 
     private static void SelectComboByTag(ComboBox combo, string tag)
@@ -865,51 +1191,89 @@ public partial class MainWindow : Window
 
     private void ShowOpenFolderBar()
     {
-        if (BtnOpenFileLocation.Visibility == Visibility.Visible) return;
+        if (BorderCompletedActions.Visibility == Visibility.Visible) return;
         if (RbDownload?.IsChecked != true) return;
 
-        BtnOpenFileLocation.Visibility = Visibility.Visible;
-        BtnOpenFileLocation.Opacity = 0;
-        BtnOpenFileLocation.RenderTransformOrigin = new Point(0.5, 0.5);
-        var st = new ScaleTransform(0.92, 0.92);
-        BtnOpenFileLocation.RenderTransform = st;
+        BorderCompletedActions.Visibility = Visibility.Visible;
+        BorderCompletedActions.Opacity = 0;
+        BorderCompletedActions.RenderTransformOrigin = new Point(0.5, 0.5);
+        var cardGroup = new TransformGroup();
+        var cardScale = new ScaleTransform(0.93, 0.93);
+        var cardTrans = new TranslateTransform(0, 10);
+        cardGroup.Children.Add(cardScale);
+        cardGroup.Children.Add(cardTrans);
+        BorderCompletedActions.RenderTransform = cardGroup;
 
         var spring = AppleSpringEase.Interactive;
         var smooth = AppleSpringEase.Gentle;
 
-        BtnOpenFileLocation.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(280))
-            { EasingFunction = smooth });
-        st.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(0.92, 1, TimeSpan.FromMilliseconds(450))
-            { EasingFunction = spring });
-        st.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(0.92, 1, TimeSpan.FromMilliseconds(450))
-            { EasingFunction = spring });
+        BorderCompletedActions.BeginAnimation(UIElement.OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(280)) { EasingFunction = smooth });
+        cardScale.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(0.93, 1, TimeSpan.FromMilliseconds(480)) { EasingFunction = spring });
+        cardScale.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(0.93, 1, TimeSpan.FromMilliseconds(480)) { EasingFunction = spring });
+        cardTrans.BeginAnimation(TranslateTransform.YProperty,
+            new DoubleAnimation(10, 0, TimeSpan.FromMilliseconds(480)) { EasingFunction = spring });
+
+        // Stagger the buttons inside the card
+        var buttons = new[] { BtnOpenFileLocation, BtnOpenInEditor };
+        var staggerSpring = AppleSpringEase.Bouncy;
+        for (int i = 0; i < buttons.Length; i++)
+        {
+            var btn = buttons[i];
+            if (btn == null) continue;
+
+            btn.Opacity = 0;
+            btn.RenderTransformOrigin = new Point(0.5, 0.5);
+            var btnGroup = new TransformGroup();
+            var btnScale = new ScaleTransform(0.95, 0.95);
+            var btnTrans = new TranslateTransform(0, 8);
+            btnGroup.Children.Add(btnScale);
+            btnGroup.Children.Add(btnTrans);
+            btn.RenderTransform = btnGroup;
+
+            var delay = TimeSpan.FromMilliseconds(80 + i * 70);
+
+            btn.BeginAnimation(UIElement.OpacityProperty,
+                new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220))
+                { BeginTime = delay, EasingFunction = smooth });
+
+            btnScale.BeginAnimation(ScaleTransform.ScaleXProperty,
+                new DoubleAnimation(0.95, 1, TimeSpan.FromMilliseconds(400))
+                { BeginTime = delay, EasingFunction = staggerSpring });
+            btnScale.BeginAnimation(ScaleTransform.ScaleYProperty,
+                new DoubleAnimation(0.95, 1, TimeSpan.FromMilliseconds(400))
+                { BeginTime = delay, EasingFunction = staggerSpring });
+
+            btnTrans.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(8, 0, TimeSpan.FromMilliseconds(400))
+                { BeginTime = delay, EasingFunction = staggerSpring });
+        }
     }
 
     private void HideOpenFolderBar()
     {
-        if (BtnOpenFileLocation.Visibility != Visibility.Visible) return;
+        if (BorderCompletedActions.Visibility != Visibility.Visible) return;
 
         var ease = AppleSpringEase.Snappy;
         var dur = TimeSpan.FromMilliseconds(200);
 
-        BtnOpenFileLocation.RenderTransformOrigin = new Point(0.5, 0.5);
+        BorderCompletedActions.RenderTransformOrigin = new Point(0.5, 0.5);
         var group = new TransformGroup();
         var st = new ScaleTransform(1, 1);
         var tt = new TranslateTransform(0, 0);
         group.Children.Add(st);
         group.Children.Add(tt);
-        BtnOpenFileLocation.RenderTransform = group;
+        BorderCompletedActions.RenderTransform = group;
 
         var opAnim = new DoubleAnimation(1, 0, dur) { EasingFunction = ease };
         opAnim.Completed += (_, _) =>
         {
-            BtnOpenFileLocation.Visibility = Visibility.Collapsed;
+            BorderCompletedActions.Visibility = Visibility.Collapsed;
         };
 
-        BtnOpenFileLocation.BeginAnimation(UIElement.OpacityProperty, opAnim);
+        BorderCompletedActions.BeginAnimation(UIElement.OpacityProperty, opAnim);
         tt.BeginAnimation(TranslateTransform.YProperty,
             new DoubleAnimation(0, 6, dur) { EasingFunction = ease });
         st.BeginAnimation(ScaleTransform.ScaleXProperty,
@@ -924,13 +1288,36 @@ public partial class MainWindow : Window
             System.Diagnostics.Process.Start("explorer.exe", _lastDownloadedFolder);
     }
 
+    private void OpenInEditor_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(_lastDownloadedFile) || !System.IO.File.Exists(_lastDownloadedFile))
+            return;
+
+        foreach (Window w in OwnedWindows)
+        {
+            if (w is EditorWindow existing)
+            {
+                existing.Focus();
+                existing.LoadVideo(_lastDownloadedFile);
+                return;
+            }
+        }
+
+        var win = new EditorWindow(GetBtnRect((UIElement)sender), _lastDownloadedFile) { Owner = this };
+        win.Show();
+    }
+
     private static void AnimatePopupIn(Border border)
     {
         var spring = AppleSpringEase.Interactive;
+        var bouncy = AppleSpringEase.Bouncy;
         var smooth = AppleSpringEase.Gentle;
         var group = (TransformGroup)border.RenderTransform;
         var st = (ScaleTransform)group.Children[0];
         var tt = (TranslateTransform)group.Children[1];
+
+        // Reset corner radius to bubbly state
+        FluidMotion.SetCornerRadiusImmediate(border, 55);
 
         border.BeginAnimation(UIElement.OpacityProperty,
             new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220))
@@ -944,6 +1331,9 @@ public partial class MainWindow : Window
         tt.BeginAnimation(TranslateTransform.YProperty,
             new DoubleAnimation(-4, 0, TimeSpan.FromMilliseconds(420))
             { EasingFunction = spring });
+
+        // Morph corner radius to normal rounded corner (12) using a spring
+        FluidMotion.AnimateCornerRadius(border, 12, TimeSpan.FromMilliseconds(550), bouncy);
     }
 
     private static void AnimatePopupOut(Border border, Action onDone)
@@ -952,6 +1342,9 @@ public partial class MainWindow : Window
         var group = (TransformGroup)border.RenderTransform;
         var st = (ScaleTransform)group.Children[0];
         var tt = (TranslateTransform)group.Children[1];
+
+        // Morph corner radius back to bubbly state (55) quickly
+        FluidMotion.AnimateCornerRadius(border, 55, TimeSpan.FromMilliseconds(160), ease);
 
         var opAnim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(160))
         { EasingFunction = ease };
@@ -974,17 +1367,14 @@ public partial class MainWindow : Window
     // ════════════════════════════════════════════════════════════
     private void DevLog(string message)
     {
-        if (!SettingsService.Current.DevConsoleEnabled) return;
         var line = $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
-        if (_devConsoleWin != null)
-        {
-            _devConsoleWin.AppendLog(line);
-        }
-        else if (BorderDevConsole.Visibility == Visibility.Visible)
-        {
-            TxtDevConsole.AppendText(TxtDevConsole.Text.Length == 0 ? line : Environment.NewLine + line);
-            TxtDevConsole.ScrollToEnd();
-        }
+        
+        // Always record in the main TextBox buffer so history is never lost
+        TxtDevConsole.AppendText(TxtDevConsole.Text.Length == 0 ? line : Environment.NewLine + line);
+        TxtDevConsole.ScrollToEnd();
+        
+        // Also append to the detached console window if it is currently open
+        _devConsoleWin?.AppendLog(line);
     }
 
     private void ClearDevConsole_Click(object s, RoutedEventArgs e)
@@ -1043,37 +1433,231 @@ public partial class MainWindow : Window
 
     private void HandleConsoleCommand(string cmd)
     {
-        var lower = cmd.ToLowerInvariant();
+        var trimCmd = cmd.Trim();
+        var lower = trimCmd.ToLowerInvariant();
+        
+        if (lower == "help")
+        {
+            DevLog("Available commands:");
+            DevLog("  help                 - Show this help list");
+            DevLog("  clear / cls          - Clear the console window");
+            DevLog("  status               - Show backend connection status");
+            DevLog("  ping                 - Ping backend and measure latency");
+            DevLog("  restart              - Restart the Python backend service");
+            DevLog("  config               - Display current settings config");
+            DevLog("  python               - Check Python installation path & version");
+            DevLog("  ffmpeg               - Check FFmpeg installation path & version");
+            DevLog("  open [downloads|app] - Open downloads or application data folder");
+            DevLog("  resize [h]/[w] [h]   - Resize inline console height or detached window size");
+            DevLog("  info                 - Show application version information");
+            DevLog("  Any other input is sent directly to the backend process stdin.");
+            return;
+        }
+
+        if (lower.StartsWith("resize"))
+        {
+            var parts = trimCmd.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 2 && double.TryParse(parts[1], out double h))
+            {
+                if (h >= 50 && h <= 1000)
+                {
+                    DevConsoleContentRow.Height = new GridLength(h);
+                    if (_devConsoleWin != null)
+                    {
+                        _devConsoleWin.Height = h;
+                    }
+                    DevLog($"[resize] Console height set to {h}px.");
+                }
+                else
+                {
+                    DevLog("[resize] Error: Height must be between 50 and 1000.");
+                }
+            }
+            else if (parts.Length == 3 && double.TryParse(parts[1], out double w) && double.TryParse(parts[2], out h))
+            {
+                if (w >= 200 && w <= 2000 && h >= 100 && h <= 1500)
+                {
+                    if (_devConsoleWin != null)
+                    {
+                        _devConsoleWin.Width = w;
+                        _devConsoleWin.Height = h;
+                        DevLog($"[resize] Detached console window resized to {w}x{h}px.");
+                    }
+                    else
+                    {
+                        DevConsoleContentRow.Height = new GridLength(h);
+                        DevLog($"[resize] Inline console height set to {h}px (detached window not open).");
+                    }
+                }
+                else
+                {
+                    DevLog("[resize] Error: Width must be 200-2000, height 100-1500.");
+                }
+            }
+            else
+            {
+                DevLog("Usage: resize <height>  OR  resize <width> <height>");
+            }
+            return;
+        }
+
         switch (lower)
         {
-            case "help":
-                DevLog("Available commands:");
-                DevLog("  help        - Show this help");
-                DevLog("  clear / cls - Clear the console");
-                DevLog("  status      - Show backend status");
-                DevLog("  info        - Show app info");
-                DevLog("  Any other input is sent to the backend process stdin");
-                break;
             case "clear":
             case "cls":
                 TxtDevConsole.Clear();
-                if (_devConsoleWin != null)
-                {
-                    _devConsoleWin.ClearConsole();
-                }
+                _devConsoleWin?.ClearConsole();
                 break;
             case "status":
-                DevLog($"Backend ready: {_backendReady}");
-                DevLog($"Backend URL: {SettingsService.Current.BackendUrl}");
+                DevLog($"[status] Backend Ready: {_backendReady}");
+                DevLog($"[status] Backend URL: {SettingsService.Current.BackendUrl}");
+                break;
+            case "ping":
+                DevLog("Pinging backend server...");
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    bool ok = await _backend.WaitForHealthAsync(System.Threading.CancellationToken.None, 1);
+                    sw.Stop();
+                    Dispatcher.Invoke(() => {
+                        if (ok) DevLog($"[ping] Pong! Backend responded in {sw.ElapsedMilliseconds} ms.");
+                        else DevLog("[ping] Ping failed. Backend is not responding.");
+                    });
+                });
+                break;
+            case "restart":
+                DevLog("Restarting backend from console...");
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        _launcher.Dispose();
+                        _launcher.Start();
+                        _backendReady = await _backend.WaitForHealthAsync(
+                            System.Threading.CancellationToken.None, SettingsService.Current.BackendTimeoutSeconds);
+                        Dispatcher.Invoke(() => {
+                            SetStatus(_backendReady ? L("StatusBackendReady") : L("StatusBackendDown"), _backendReady);
+                            DevLog(_backendReady ? "[restart] Backend restarted successfully." : "[restart] Backend restart failed.");
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Dispatcher.Invoke(() => {
+                            SetStatus($"{L("StatusBackendErrPrefix")} {ex.Message}", false);
+                            DevLog($"[restart] Error: {ex.Message}");
+                        });
+                    }
+                });
+                break;
+            case "config":
+                DevLog("Current Configuration Settings:");
+                DevLog($"  Backend URL:          {SettingsService.Current.BackendUrl}");
+                DevLog($"  Startup Timeout:      {SettingsService.Current.BackendTimeoutSeconds}s");
+                DevLog($"  Auto-Paste URL:       {SettingsService.Current.AutoPasteOnFocus}");
+                DevLog($"  Default Privacy:      {SettingsService.Current.DefaultPrivacy}");
+                DevLog($"  Auto #Shorts Tag:     {SettingsService.Current.AutoAddShortsHashtag}");
+                DevLog($"  Bypass Fingerprint:   {SettingsService.Current.DefaultFingerprintEnabled}");
+                DevLog($"  Default Save Path:    {SettingsService.Current.DefaultOutputDir}");
+                DevLog($"  GPU Acceleration:     {SettingsService.Current.UseGpu}");
+                DevLog($"  Always On Top:        {SettingsService.Current.AlwaysOnTop}");
+                DevLog($"  Notify On Complete:   {SettingsService.Current.NotifyOnComplete}");
+                DevLog($"  Max Concurrent Jobs:  {SettingsService.Current.MaxConcurrentJobs}");
+                break;
+            case "python":
+                DevLog("Checking system Python...");
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        var pInfo = new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = "python",
+                            Arguments = "--version",
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
+                        };
+                        using var p = System.Diagnostics.Process.Start(pInfo);
+                        if (p != null)
+                        {
+                            p.WaitForExit(3000);
+                            var output = (p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd()).Trim();
+                            Dispatcher.Invoke(() => DevLog($"[python] Version: {output}"));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Dispatcher.Invoke(() => DevLog($"[python] Failed to call 'python --version' on PATH: {ex.Message}"));
+                    }
+                });
+                break;
+            case "ffmpeg":
+                DevLog("Checking system FFmpeg...");
+                System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        var pInfo = new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = FindFfmpegExe(),
+                            Arguments = "-version",
+                            UseShellExecute = false,
+                            CreateNoWindow = true,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
+                        };
+                        using var p = System.Diagnostics.Process.Start(pInfo);
+                        if (p != null)
+                        {
+                            p.WaitForExit(3000);
+                            var line = p.StandardOutput.ReadLine();
+                            Dispatcher.Invoke(() => DevLog($"[ffmpeg] Version: {(line ?? "Unknown").Trim()}"));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Dispatcher.Invoke(() => DevLog($"[ffmpeg] Failed to call 'ffmpeg -version' on PATH: {ex.Message}"));
+                    }
+                });
                 break;
             case "info":
-                DevLog($"ReelsConverter v3.0");
-                DevLog($"Language: {_currentLang}");
-                DevLog($"Dev console: enabled");
+                DevLog("ReelsConverter developer console");
+                DevLog($"App version: v3.1");
+                DevLog($"Language: {SettingsService.Current.Language}");
+                break;
+            case "open":
+            case "open downloads":
+            case "open appdata":
+            case "open app":
+                if (lower == "open")
+                {
+                    DevLog("Open command targets: downloads, appdata");
+                }
+                else if (lower == "open downloads")
+                {
+                    var path = SettingsService.Current.DefaultOutputDir;
+                    if (string.IsNullOrEmpty(path))
+                        path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                    DevLog($"Opening downloads folder: {path}");
+                    if (System.IO.Directory.Exists(path))
+                        System.Diagnostics.Process.Start("explorer.exe", path);
+                    else
+                        DevLog("[open] Directory does not exist.");
+                }
+                else
+                {
+                    var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ReelsConverter");
+                    DevLog($"Opening app data folder: {path}");
+                    if (System.IO.Directory.Exists(path))
+                        System.Diagnostics.Process.Start("explorer.exe", path);
+                    else
+                        DevLog("[open] Directory does not exist.");
+                }
                 break;
             default:
-                _launcher.SendInput(cmd);
-                DevLog($"[sent to backend] {cmd}");
+                _launcher.SendInput(trimCmd);
+                DevLog($"[sent to backend] {trimCmd}");
                 break;
         }
     }
@@ -1111,13 +1695,188 @@ public partial class MainWindow : Window
 
     private void SetStatus(string text, bool ok)
     {
-        TxtStatusBar.Text = text;
-        var color = ok ? Color.FromRgb(0x5A, 0xAF, 0x6E) : Color.FromRgb(0xC4, 0x48, 0x48);
-        FluidMotion.AnimateColor(StatusDotColor, color);
+        DevLog($"Status change: {text} (ok={ok})");
+        if (ok)
+        {
+            BtnErrorStatus.Visibility = Visibility.Collapsed;
+            if (ErrorPopup.IsOpen) ErrorPopup.IsOpen = false;
+        }
+        else
+        {
+            TxtPopupErrorDetails.Text = text;
+            TxtPopupErrorFix.Text = GetSuggestedFix(text);
+            BtnErrorStatus.Visibility = Visibility.Visible;
+
+            // Show/hide Restart Backend button depending on error type
+            var lower = text.ToLowerInvariant();
+            bool isBackendError = lower.Contains("backend") || lower.Contains("connect") || lower.Contains("port") || lower.Contains("reach");
+            BtnRestartBackend.Visibility = isBackendError ? Visibility.Visible : Visibility.Collapsed;
+        }
     }
 
-    private static void Warn(string msg)
-        => MessageBox.Show(msg, "ReelsConverter", MessageBoxButton.OK, MessageBoxImage.Warning);
+    private void ErrorStatus_Click(object s, RoutedEventArgs e)
+    {
+        ErrorPopup.PlacementTarget = (UIElement)s;
+        if (!ErrorPopup.IsOpen)
+        {
+            ErrorPopup.IsOpen = true;
+            AnimateErrorPopupIn(ErrorPopupBorder);
+        }
+        else
+        {
+            AnimateErrorPopupOut(ErrorPopupBorder, () => ErrorPopup.IsOpen = false);
+        }
+    }
+
+    private void AnimateErrorPopupIn(Border border)
+    {
+        var spring = AppleSpringEase.Interactive;
+        var bouncy = AppleSpringEase.Bouncy;
+        var smooth = AppleSpringEase.Gentle;
+        var group = (TransformGroup)border.RenderTransform;
+        var st = (ScaleTransform)group.Children[0];
+        var tt = (TranslateTransform)group.Children[1];
+
+        // Reset corner radius to bubbly state
+        FluidMotion.SetCornerRadiusImmediate(border, 55);
+
+        // Animate Opacity
+        border.BeginAnimation(UIElement.OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(240))
+            { EasingFunction = smooth });
+
+        // Animate Scale
+        st.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(0.92, 1, TimeSpan.FromMilliseconds(480))
+            { EasingFunction = spring });
+        st.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(0.92, 1, TimeSpan.FromMilliseconds(480))
+            { EasingFunction = spring });
+
+        // Animate Y position (slide down slightly)
+        tt.BeginAnimation(TranslateTransform.YProperty,
+            new DoubleAnimation(-10, 0, TimeSpan.FromMilliseconds(480))
+            { EasingFunction = spring });
+
+        // Morph corner radius to normal rounded rectangle (14) using a bouncy spring!
+        FluidMotion.AnimateCornerRadius(border, 14, TimeSpan.FromMilliseconds(620), bouncy);
+
+        // Stagger inner elements
+        if (border.Child is StackPanel sp)
+        {
+            FluidMotion.StaggerIn(sp, baseDelayMs: 40, stepMs: 35);
+        }
+    }
+
+    private void AnimateErrorPopupOut(Border border, Action onDone)
+    {
+        var ease = AppleSpringEase.Snappy;
+        var group = (TransformGroup)border.RenderTransform;
+        var st = (ScaleTransform)group.Children[0];
+        var tt = (TranslateTransform)group.Children[1];
+
+        // Animate corner radius back to bubbly state (55) quickly!
+        FluidMotion.AnimateCornerRadius(border, 55, TimeSpan.FromMilliseconds(200), ease);
+
+        var opAnim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(200))
+        { EasingFunction = ease };
+        opAnim.Completed += (_, _) => onDone();
+
+        border.BeginAnimation(UIElement.OpacityProperty, opAnim);
+        st.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(1, 0.92, TimeSpan.FromMilliseconds(200))
+            { EasingFunction = ease });
+        st.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(1, 0.92, TimeSpan.FromMilliseconds(200))
+            { EasingFunction = ease });
+        tt.BeginAnimation(TranslateTransform.YProperty,
+            new DoubleAnimation(0, -10, TimeSpan.FromMilliseconds(200))
+            { EasingFunction = ease });
+    }
+
+    private void CopyErrorDetails_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var textToCopy = $"Error Details:\n{TxtPopupErrorDetails.Text}\n\nSuggested Fix:\n{TxtPopupErrorFix.Text}";
+            Clipboard.SetText(textToCopy);
+            NotificationWindow.Show(L("ErrPopupCopySuccess"), this, NotificationType.Info);
+        }
+        catch (Exception ex)
+        {
+            DevLog($"Failed to copy error details: {ex.Message}");
+        }
+    }
+
+    private void ShowLogs_Click(object sender, RoutedEventArgs e)
+    {
+        AnimateErrorPopupOut(ErrorPopupBorder, () => ErrorPopup.IsOpen = false);
+        DetachDevConsole_Click(sender, e);
+    }
+
+    private void RestartBackend_Click(object sender, RoutedEventArgs e)
+    {
+        AnimateErrorPopupOut(ErrorPopupBorder, () => ErrorPopup.IsOpen = false);
+        NotificationWindow.Show(L("ErrPopupRestarting"), this, NotificationType.Info);
+
+        System.Threading.Tasks.Task.Run(async () =>
+        {
+            try
+            {
+                DevLog("Restarting backend via launcher...");
+                _launcher.Dispose();
+                _launcher.Start();
+                DevLog("Backend launcher restarted, waiting for health check...");
+                _backendReady = await _backend.WaitForHealthAsync(
+                    System.Threading.CancellationToken.None, SettingsService.Current.BackendTimeoutSeconds);
+                DevLog(_backendReady ? "Backend health check: OK" : "Backend health check: FAILED");
+                Dispatcher.Invoke(() => SetStatus(_backendReady ? L("StatusBackendReady") : L("StatusBackendDown"), _backendReady));
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.Invoke(() => SetStatus($"{L("StatusBackendErrPrefix")} {ex.Message}", false));
+            }
+        });
+    }
+
+    private string GetSuggestedFix(string error)
+    {
+        if (string.IsNullOrEmpty(error))
+            return _currentLang == "en" ? "No details available." : "Keine Details vorhanden.";
+
+        var lower = error.ToLowerInvariant();
+        if (_currentLang == "en")
+        {
+            if (lower.Contains("backend") || lower.Contains("connect") || lower.Contains("port"))
+                return "Ensure the backend service is running and not blocked by a firewall. Try restarting the app.";
+            if (lower.Contains("url") || lower.Contains("link"))
+                return "Please enter a valid YouTube or video link in the input field.";
+            if (lower.Contains("title") || lower.Contains("titel"))
+                return "Please enter a title for the video upload.";
+            if (lower.Contains("python") || lower.Contains("ffmpeg") || lower.Contains("path"))
+                return "Ensure Python 3.12 and FFmpeg are correctly installed and added to the system PATH.";
+            if (lower.Contains("output") || lower.Contains("save") || lower.Contains("directory"))
+                return "Please select a valid output folder for the download.";
+            return "Check the Developer Console (⌘) or local logs for more diagnostics.";
+        }
+        else
+        {
+            if (lower.Contains("backend") || lower.Contains("verbindung") || lower.Contains("connect") || lower.Contains("port"))
+                return "Stellen Sie sicher, dass das Backend läuft und nicht blockiert wird. Starten Sie die Anwendung neu.";
+            if (lower.Contains("url") || lower.Contains("link"))
+                return "Bitte geben Sie einen gültigen YouTube- oder Video-Link im URL-Feld ein.";
+            if (lower.Contains("titel") || lower.Contains("title"))
+                return "Bitte geben Sie einen Titel für das Video ein.";
+            if (lower.Contains("python") || lower.Contains("ffmpeg") || lower.Contains("pfad") || lower.Contains("path"))
+                return "Stellen Sie sicher, dass Python 3.12 und FFmpeg installiert und im System-PATH eingetragen sind.";
+            if (lower.Contains("speicherpfad") || lower.Contains("output") || lower.Contains("ordner") || lower.Contains("save"))
+                return "Bitte wählen Sie einen gültigen Ausgabeordner für den Download aus.";
+            return "Prüfen Sie die Entwicklerkonsole (⌘) oder die Log-Dateien für weitere Details.";
+        }
+    }
+
+    private void Warn(string msg)
+        => NotificationWindow.Show(msg, this, NotificationType.Warning);
 
     private void MainLog_Click(object s, RoutedEventArgs e)
     {
@@ -1150,4 +1909,382 @@ public partial class MainWindow : Window
         return new Rect(pos.X, pos.Y, sz.Width, sz.Height);
     }
 
+    // ════════════════════════════════════════════════════════════
+    //  DRAG AND DROP
+    // ════════════════════════════════════════════════════════════
+    private void Window_DragEnter(object sender, DragEventArgs e)
+    {
+        if (_isLoadingFromDrag) return;
+
+        if (IsLinkDrag(e))
+        {
+            e.Effects = DragDropEffects.Copy;
+            ShowDragOverlay();
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
     }
+
+    private void Window_DragOver(object sender, DragEventArgs e)
+    {
+        if (IsLinkDrag(e))
+        {
+            e.Effects = DragDropEffects.Copy;
+            if (!_isLoadingFromDrag && GridDragDropOverlay.Visibility != Visibility.Visible)
+            {
+                ShowDragOverlay();
+            }
+        }
+        else
+        {
+            e.Effects = DragDropEffects.None;
+        }
+        e.Handled = true;
+    }
+
+    private void Window_DragLeave(object sender, DragEventArgs e)
+    {
+        if (_isLoadingFromDrag) return;
+
+        // Get mouse position relative to the Window
+        var pos = e.GetPosition(this);
+        
+        // If the mouse is still inside the window bounds, ignore.
+        // WPF fires DragLeave when crossing elements in hierarchy, which causes flickering.
+        if (pos.X >= 0 && pos.X <= ActualWidth && pos.Y >= 0 && pos.Y <= ActualHeight)
+        {
+            return;
+        }
+
+        HideDragOverlay();
+        e.Handled = true;
+    }
+
+    private async void Window_Drop(object sender, DragEventArgs e)
+    {
+        if (IsLinkDrag(e))
+        {
+            var url = GetDroppedLink(e);
+            if (!string.IsNullOrEmpty(url))
+            {
+                TxtUrl.Text = url;
+                _isLoadingFromDrag = true;
+                
+                ShowLoadingState();
+                
+                // Yield thread control back to the WPF dispatcher for 100ms
+                // to guarantee the UI renders the loading state & spinner.
+                await System.Threading.Tasks.Task.Delay(100);
+                
+                await FetchMetadataAsync(url);
+                
+                _isLoadingFromDrag = false;
+                HideDragOverlay();
+            }
+            else
+            {
+                HideDragOverlay();
+            }
+        }
+        else
+        {
+            HideDragOverlay();
+        }
+        e.Handled = true;
+    }
+
+    private bool IsLinkDrag(DragEventArgs e)
+    {
+        if (e.Data.GetDataPresent(DataFormats.Text) || 
+            e.Data.GetDataPresent(DataFormats.UnicodeText))
+        {
+            var text = GetDragText(e);
+            if (!string.IsNullOrEmpty(text))
+            {
+                var lower = text.Trim().ToLowerInvariant();
+                return lower.StartsWith("http://") || 
+                       lower.StartsWith("https://") || 
+                       lower.Contains("youtube.com") || 
+                       lower.Contains("youtu.be") || 
+                       lower.Contains("instagram.com") || 
+                       lower.Contains("tiktok.com");
+            }
+        }
+        return false;
+    }
+
+    private string GetDragText(DragEventArgs e)
+    {
+        try
+        {
+            if (e.Data.GetDataPresent(DataFormats.UnicodeText))
+                return e.Data.GetData(DataFormats.UnicodeText) as string ?? "";
+            if (e.Data.GetDataPresent(DataFormats.Text))
+                return e.Data.GetData(DataFormats.Text) as string ?? "";
+        }
+        catch { }
+        return "";
+    }
+
+    private string GetDroppedLink(DragEventArgs e)
+    {
+        return GetDragText(e).Trim();
+    }
+
+    private void ShowDragOverlay()
+    {
+        if (GridDragDropOverlay.Visibility == Visibility.Visible) return;
+
+        GridDragDropOverlay.Visibility = Visibility.Visible;
+        GridDragDropOverlay.Opacity = 0;
+
+        var scale = (ScaleTransform)((TransformGroup)DragDropOverlayContent.RenderTransform).Children[0];
+        scale.ScaleX = 0.9;
+        scale.ScaleY = 0.9;
+
+        var spring = AppleSpringEase.Interactive;
+        var smooth = AppleSpringEase.Gentle;
+
+        GridDragDropOverlay.BeginAnimation(OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250))
+            { EasingFunction = smooth });
+
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(0.9, 1, TimeSpan.FromMilliseconds(450))
+            { EasingFunction = spring });
+
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(0.9, 1, TimeSpan.FromMilliseconds(450))
+            { EasingFunction = spring });
+    }
+
+    private void HideDragOverlay()
+    {
+        if (GridDragDropOverlay.Visibility != Visibility.Visible) return;
+
+        var ease = AppleSpringEase.Snappy;
+        var dur = TimeSpan.FromMilliseconds(200);
+
+        var scale = (ScaleTransform)((TransformGroup)DragDropOverlayContent.RenderTransform).Children[0];
+
+        var opAnim = new DoubleAnimation(1, 0, dur) { EasingFunction = ease };
+        opAnim.Completed += (s, e) => {
+            GridDragDropOverlay.Visibility = Visibility.Collapsed;
+            ResetOverlayUI();
+        };
+
+        GridDragDropOverlay.BeginAnimation(OpacityProperty, opAnim);
+
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty,
+            new DoubleAnimation(1, 0.93, dur) { EasingFunction = ease });
+
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty,
+            new DoubleAnimation(1, 0.93, dur) { EasingFunction = ease });
+    }
+
+    private void ShowLoadingState()
+    {
+        TxtDragPrompt.Text = L("StatusLoading");
+        StartSpinnerAnimation();
+    }
+
+    private void ResetOverlayUI()
+    {
+        TxtDragPrompt.Text = L("DragDropOverlayText");
+        StopSpinnerAnimation();
+    }
+
+    private void StartSpinnerAnimation()
+    {
+        TxtDragIcon.Visibility = Visibility.Collapsed;
+        TxtDragSpinner.Visibility = Visibility.Visible;
+        DragProgress.Visibility = Visibility.Visible;
+        DragDropDashedBorder.Visibility = Visibility.Collapsed;
+        
+        var spinnerAnimation = new DoubleAnimation
+        {
+            From = 0,
+            To = 360,
+            Duration = TimeSpan.FromSeconds(1.8),
+            RepeatBehavior = RepeatBehavior.Forever
+        };
+        SpinnerRotate.BeginAnimation(RotateTransform.AngleProperty, spinnerAnimation);
+    }
+
+    private void StopSpinnerAnimation()
+    {
+        SpinnerRotate.BeginAnimation(RotateTransform.AngleProperty, null);
+        TxtDragSpinner.Visibility = Visibility.Collapsed;
+        TxtDragIcon.Visibility = Visibility.Visible;
+        DragProgress.Visibility = Visibility.Collapsed;
+        DragDropDashedBorder.Visibility = Visibility.Visible;
+    }
+
+    private static string FindFfmpegExe()
+    {
+        var exeDir = System.IO.Path.GetDirectoryName(Environment.ProcessPath);
+        if (exeDir is not null)
+        {
+            var localPath = System.IO.Path.Combine(exeDir, "backend", "ffmpeg_bin", "ffmpeg.exe");
+            if (System.IO.File.Exists(localPath)) return localPath;
+            
+            var localPath2 = System.IO.Path.Combine(exeDir, "ffmpeg_bin", "ffmpeg.exe");
+            if (System.IO.File.Exists(localPath2)) return localPath2;
+        }
+
+        var dir = AppDomain.CurrentDomain.BaseDirectory;
+        for (int i = 0; i < 8; i++)
+        {
+            var path1 = System.IO.Path.Combine(dir, "backend", "ffmpeg_bin", "ffmpeg.exe");
+            if (System.IO.File.Exists(path1)) return path1;
+
+            var path2 = System.IO.Path.Combine(dir, "ffmpeg_bin", "ffmpeg.exe");
+            if (System.IO.File.Exists(path2)) return path2;
+
+            var parent = System.IO.Directory.GetParent(dir);
+            if (parent is null) break;
+            dir = parent.FullName;
+        }
+
+        return "ffmpeg";
+    }
+
+    public async Task RunFfmpegExportJobAsync(string output, string args, string? srtPath, double trimDurationSecs)
+    {
+        BtnStart.IsEnabled = false;
+        BtnFetch.IsEnabled = false;
+        HideOpenFolderBar();
+        _lastDownloadedFolder = null;
+        _lastDownloadedFile = null;
+
+        _lastJobLog = string.Empty;
+        _lastLogEntry = string.Empty;
+        _logViewer?.Close();
+
+        _cts = new CancellationTokenSource();
+        _progressWin = new ProgressWindow(_cts, GetBtnRect(BtnStart)) { Owner = this };
+        
+        _progressWin.Closed += (_, _) =>
+        {
+            _lastJobLog = _progressWin?.LogContent ?? string.Empty;
+            _progressWin = null;
+            var hasLog = !string.IsNullOrEmpty(_lastJobLog);
+            BtnMainLog.IsEnabled = hasLog;
+            if (!hasLog) BtnMainLog.Visibility = Visibility.Collapsed;
+            if (!_cts.IsCancellationRequested)
+                _cts.Cancel();
+        };
+
+        _progressWin.OnHiddenInBackground += (sender, args) =>
+        {
+            HighlightMiniProgress(true);
+        };
+
+        BtnMainLog.IsEnabled = true;
+        ShowLogButton();
+
+        bool autoShow = SettingsService.Current.AutoShowProgressWindow;
+        if (autoShow)
+        {
+            _progressWin.Show();
+        }
+
+        _progressWin.UpdateProgress(0, "Exportieren…", "Starte ffmpeg…");
+        _progressWin.AppendLog("Exportiere Video mit ffmpeg…");
+
+        // Reveal miniature progress bar
+        MiniProgressFill.Width = 0;
+        FluidMotion.RevealElement(MiniProgressContainer);
+
+        if (!autoShow)
+        {
+            HighlightMiniProgress(true);
+        }
+
+        try
+        {
+            await Task.Run(() =>
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = FindFfmpegExe(),
+                    Arguments = args,
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardError = true,
+                };
+                
+                using var proc = Process.Start(psi);
+                if (proc == null) throw new Exception("ffmpeg konnte nicht gestartet werden.");
+
+                using (var registration = _cts.Token.Register(() => { try { proc.Kill(); } catch {} }))
+                {
+                    string? line;
+                    while ((line = proc.StandardError.ReadLine()) != null)
+                    {
+                        var logLine = line;
+                        Dispatcher.Invoke(() =>
+                        {
+                            if (_progressWin != null)
+                            {
+                                _progressWin.AppendLog(logLine);
+                                
+                                var match = System.Text.RegularExpressions.Regex.Match(logLine, @"time=(\d+):(\d+):(\d+)\.(\d+)");
+                                if (match.Success)
+                                {
+                                    int hrs = int.Parse(match.Groups[1].Value);
+                                    int mins = int.Parse(match.Groups[2].Value);
+                                    int secs = int.Parse(match.Groups[3].Value);
+                                    double currentSecs = hrs * 3600 + mins * 60 + secs;
+                                    
+                                    int progress = 0;
+                                    if (trimDurationSecs > 0)
+                                    {
+                                        progress = (int)Math.Clamp((currentSecs / trimDurationSecs) * 100, 0, 99);
+                                    }
+                                    
+                                    _progressWin.UpdateProgress(progress, "Exportieren…", $"{progress}% abgeschlossen");
+                                    FluidMotion.AnimateProgressWidth(MiniProgressFill, 80.0 * progress / 100.0);
+                                }
+                            }
+                        });
+                    }
+
+                    proc.WaitForExit();
+                    if (proc.ExitCode != 0)
+                    {
+                        throw new Exception($"ffmpeg beendet mit Code {proc.ExitCode}");
+                    }
+                }
+            });
+
+            _progressWin?.AppendLog("[OK] Export erfolgreich abgeschlossen.");
+            SetStatus("Export erfolgreich abgeschlossen", true);
+            _progressWin?.MarkDone(true, System.IO.Path.GetDirectoryName(output));
+        }
+        catch (OperationCanceledException)
+        {
+            SetStatus("Export abgebrochen", false);
+            _progressWin?.MarkDone(false);
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Export Fehler: {ex.Message}", false);
+            _progressWin?.MarkDone(false);
+        }
+        finally
+        {
+            if (srtPath != null && System.IO.File.Exists(srtPath))
+                try { System.IO.File.Delete(srtPath); } catch { }
+
+            BtnStart.IsEnabled = true;
+            BtnFetch.IsEnabled = true;
+
+            HighlightMiniProgress(false);
+            FluidMotion.DismissElement(MiniProgressContainer);
+        }
+    }
+}

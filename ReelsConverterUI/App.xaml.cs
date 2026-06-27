@@ -14,6 +14,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         ThemeService.Apply(ThemeService.Current);
+        SettingsService.ApplyScrollbarVisibility();
         base.OnStartup(e);
     }
 
@@ -22,7 +23,7 @@ public partial class App : Application
         var msg = e.Exception.ToString();
         if (e.Exception.InnerException is not null)
             msg = e.Exception.InnerException.ToString() + "\n\n" + msg;
-        MessageBox.Show(msg, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        NotificationWindow.Show(msg, null, NotificationType.Error);
         e.Handled = true;
     }
 }

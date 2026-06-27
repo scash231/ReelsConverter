@@ -18,6 +18,7 @@ public partial class SettingsWindow : Window
     private bool _isAnimatingClose;
     private bool? _pendingResult;
     private StackPanel? _activePanel;
+    public bool IsSaved { get; private set; } = false;
 
     public SettingsWindow(Rect originRect)
     {
@@ -28,6 +29,10 @@ public partial class SettingsWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (Services.SettingsService.Current.BlurSettings)
+        {
+            Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+        }
         FluidMotion.MorphOpen(RootBorder, WindowScale, WindowTranslate, _originRect, this);
 
         _activePanel = PanelGeneral;
@@ -42,6 +47,16 @@ public partial class SettingsWindow : Window
         ChkAutoPaste.IsChecked = s.AutoPasteOnFocus;
         ChkAutoFetch.IsChecked = s.AutoFetchMetadata;
         ChkNotifyComplete.IsChecked = s.NotifyOnComplete;
+        ChkAutoShowProgress.IsChecked = s.AutoShowProgressWindow;
+        ChkHideScrollbars.IsChecked = s.HideScrollbars;
+
+        // Blur Settings (Liquid Glass)
+        ChkBlurMain.IsChecked = s.BlurMainWindow;
+        ChkBlurEditor.IsChecked = s.BlurEditor;
+        ChkBlurSettings.IsChecked = s.BlurSettings;
+        ChkBlurLog.IsChecked = s.BlurLogViewer;
+        ChkBlurConsole.IsChecked = s.BlurDevConsole;
+        ChkBlurDesc.IsChecked = s.BlurDescEditor;
 
         // Upload
         SelectComboByTag(CmbDefaultPrivacy, s.DefaultPrivacy);
@@ -89,6 +104,7 @@ public partial class SettingsWindow : Window
         if (!IsLoaded) return;
 
         var target = sender == TabGeneral   ? PanelGeneral
+                   : sender == TabBackdrops ? PanelBackdrops
                    : sender == TabUpload    ? PanelUpload
                    : sender == TabDownload  ? PanelDownload
                    : sender == TabAdvanced  ? PanelAdvanced
@@ -106,15 +122,17 @@ public partial class SettingsWindow : Window
         if (old != null)
         {
             var ease = AppleSpringEase.Snappy;
-            var dur = TimeSpan.FromMilliseconds(150);
+            var dur = TimeSpan.FromMilliseconds(180);
             var fadeOut = new DoubleAnimation(1, 0, dur) { EasingFunction = ease };
             fadeOut.Completed += (_, _) =>
             {
                 old.Visibility = Visibility.Collapsed;
-                target.Visibility = Visibility.Visible;
-                AnimateTabContent(target);
             };
             old.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+
+            target.Opacity = 0;
+            target.Visibility = Visibility.Visible;
+            AnimateTabContent(target);
         }
         else
         {
@@ -204,6 +222,16 @@ public partial class SettingsWindow : Window
             AutoPasteOnFocus             = ChkAutoPaste.IsChecked == true,
             AutoFetchMetadata            = ChkAutoFetch.IsChecked == true,
             NotifyOnComplete             = ChkNotifyComplete.IsChecked == true,
+            AutoShowProgressWindow       = ChkAutoShowProgress.IsChecked == true,
+            HideScrollbars               = ChkHideScrollbars.IsChecked == true,
+
+            // Window Blur
+            BlurMainWindow               = ChkBlurMain.IsChecked == true,
+            BlurEditor                   = ChkBlurEditor.IsChecked == true,
+            BlurSettings                 = ChkBlurSettings.IsChecked == true,
+            BlurLogViewer                = ChkBlurLog.IsChecked == true,
+            BlurDevConsole               = ChkBlurConsole.IsChecked == true,
+            BlurDescEditor               = ChkBlurDesc.IsChecked == true,
 
             // Upload
             DefaultPrivacy               = (CmbDefaultPrivacy.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "public",
@@ -241,8 +269,18 @@ public partial class SettingsWindow : Window
         if (_isAnimatingClose) return;
         _isAnimatingClose = true;
         _pendingResult = result;
+        IsSaved = (result == true);
         FluidMotion.MorphClose(RootBorder, WindowScale, WindowTranslate, _originRect, this,
-            () => DialogResult = _pendingResult);
+            () => {
+                try
+                {
+                    DialogResult = _pendingResult;
+                }
+                catch (System.InvalidOperationException)
+                {
+                    Close();
+                }
+            });
     }
 
     private static void SelectComboByTag(ComboBox combo, string tag)

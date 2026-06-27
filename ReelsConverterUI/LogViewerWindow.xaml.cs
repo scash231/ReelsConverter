@@ -22,6 +22,10 @@ public partial class LogViewerWindow : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        if (Services.SettingsService.Current.BlurLogViewer)
+        {
+            Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+        }
         FluidMotion.MorphOpen(RootBorder, WinScale, WinTranslate, _originRect, this);
         TxtLog.ScrollToEnd();
     }

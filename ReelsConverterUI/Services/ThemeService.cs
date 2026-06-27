@@ -8,6 +8,8 @@ namespace ReelsConverterUI.Services;
 
 public static class ThemeService
 {
+    public static event Action? ThemeApplied;
+
     private static readonly string _path = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "ReelsConverter", "theme.json");
@@ -62,11 +64,54 @@ public static class ThemeService
                 res["AccentGrad"] = new LinearGradientBrush(gc, gc, 0);
             }
         }
+
+        // Detect if light theme by checking background deep brightness
+        bool isLight = false;
+        if (TryParseColor(theme.BgDeep, out var bgDeepColor))
+        {
+            // Standard relative luminance formula
+            double luminance = (0.2126 * bgDeepColor.R + 0.7152 * bgDeepColor.G + 0.0722 * bgDeepColor.B) / 255.0;
+            isLight = luminance > 0.5;
+        }
+
+        // Programmatically expose helper brushes for hover, active, and dropdown/popup states
+        if (isLight)
+        {
+            res["HoverBg"] = new SolidColorBrush(Color.FromArgb(0x12, 0x00, 0x00, 0x00));  // 7% black
+            res["ActiveBg"] = new SolidColorBrush(Color.FromArgb(0x1D, 0x00, 0x00, 0x00)); // 11% black
+            res["CardHoverBg"] = new SolidColorBrush(Color.FromArgb(0x0A, 0x00, 0x00, 0x00));
+            res["PopupBg"] = new SolidColorBrush(Color.FromArgb(0xF2, 0xFA, 0xFA, 0xFC)); // clean light acrylic/solid
+            res["PopupBorder"] = new SolidColorBrush(Color.FromArgb(0x40, 0x00, 0x00, 0x00));
+            res["InputBg"] = new SolidColorBrush(Color.FromArgb(0x12, 0x00, 0x00, 0x00)); // 7% black input bg for light mode
+        }
+        else
+        {
+            res["HoverBg"] = new SolidColorBrush(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF));  // 9% white
+            res["ActiveBg"] = new SolidColorBrush(Color.FromArgb(0x25, 0xFF, 0xFF, 0xFF)); // 14% white
+            res["CardHoverBg"] = new SolidColorBrush(Color.FromArgb(0x12, 0xFF, 0xFF, 0xFF));
+            res["PopupBg"] = new SolidColorBrush(Color.FromArgb(0xEE, 0x1E, 0x1E, 0x24)); // dark acrylic/solid
+            res["PopupBorder"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
+            res["InputBg"] = new SolidColorBrush(Color.FromArgb(0x0A, 0xFF, 0xFF, 0xFF)); // 4% white input bg for dark mode
+        }
+
+        ThemeApplied?.Invoke();
     }
 
     private static void SetBrush(ResourceDictionary res, string key, string hex)
     {
         if (!TryParseColor(hex, out var color)) return;
+
+        // Apply glassmorphism transparency to background layers if not explicitly specified
+        if (color.A == 255)
+        {
+            if (key == "BgCard")
+                color.A = 0xAC; // ~67% opacity for glass cards
+            else if (key == "BgSurface")
+                color.A = 0xBD; // ~74% opacity
+            else if (key == "BgElevated")
+                color.A = 0xCD; // ~80% opacity
+        }
+
         if (res[key] is SolidColorBrush brush && !brush.IsFrozen)
             brush.Color = color;
         else
@@ -140,4 +185,172 @@ public static class ThemeService
         SuccessGreen = "#81C784", ErrorRed = "#E57373",
         ButtonGrad = "#5A3050"
     };
+
+    public static ThemeSettings Aurora => new()
+    {
+        BgDeep = "#150F18", BgSurface = "#1E1422", BgCard = "#261A2C",
+        BgElevated = "#312138", BorderSub = "#442E4C",
+        Accent = "#EC4899", AccentAlt = "#F472B6",
+        TextPrimary = "#E2D9E6", TextSec = "#A08DA5",
+        SuccessGreen = "#22C55E", ErrorRed = "#EF4444",
+        ButtonGrad = "#4F1E65"
+    };
+
+    public static ThemeSettings Cyberpunk => new()
+    {
+        BgDeep = "#0A0A0C", BgSurface = "#121216", BgCard = "#181820",
+        BgElevated = "#22222B", BorderSub = "#2F2F3D",
+        Accent = "#06B6D4", AccentAlt = "#22D3EE",
+        TextPrimary = "#E2E8F0", TextSec = "#94A3B8",
+        SuccessGreen = "#10B981", ErrorRed = "#F43F5E",
+        ButtonGrad = "#1B3B48"
+    };
+
+    public static ThemeSettings Nordic => new()
+    {
+        BgDeep = "#0F172A", BgSurface = "#1E293B", BgCard = "#334155",
+        BgElevated = "#475569", BorderSub = "#64748B",
+        Accent = "#38BDF8", AccentAlt = "#7DD3FC",
+        TextPrimary = "#F1F5F9", TextSec = "#94A3B8",
+        SuccessGreen = "#34D399", ErrorRed = "#F87171",
+        ButtonGrad = "#2E4A62"
+    };
+
+    public static ThemeSettings OledDark => new()
+    {
+        BgDeep = "#000000", BgSurface = "#080808", BgCard = "#111111",
+        BgElevated = "#181818", BorderSub = "#262626",
+        Accent = "#38B6FF", AccentAlt = "#A5F3FC",
+        TextPrimary = "#F8FAFC", TextSec = "#64748B",
+        SuccessGreen = "#10B981", ErrorRed = "#F43F5E",
+        ButtonGrad = "#1F2937"
+    };
+
+    public static ThemeSettings Emerald => new()
+    {
+        BgDeep = "#051610", BgSurface = "#0B221B", BgCard = "#102E24",
+        BgElevated = "#173E31", BorderSub = "#225645",
+        Accent = "#10B981", AccentAlt = "#34D399",
+        TextPrimary = "#ECFDF5", TextSec = "#6EE7B7",
+        SuccessGreen = "#10B981", ErrorRed = "#F43F5E",
+        ButtonGrad = "#064E3B"
+    };
+
+    public static ThemeSettings Dracula => new()
+    {
+        BgDeep = "#1E1E2E", BgSurface = "#252538", BgCard = "#2E2E44",
+        BgElevated = "#383852", BorderSub = "#444462",
+        Accent = "#FF79C6", AccentAlt = "#BD93F9",
+        TextPrimary = "#F8F8F2", TextSec = "#6272A4",
+        SuccessGreen = "#50FA7B", ErrorRed = "#FF5555",
+        ButtonGrad = "#4D3D70"
+    };
+
+    public static ThemeSettings Alabaster => new()
+    {
+        BgDeep = "#E0F5F6F8", BgSurface = "#AAF5F6F8", BgCard = "#80FFFFFF",
+        BgElevated = "#90E9ECEF", BorderSub = "#40000000",
+        Accent = "#007AFF", AccentAlt = "#0055B3",
+        TextPrimary = "#1F2329", TextSec = "#5C6370",
+        SuccessGreen = "#28A745", ErrorRed = "#DC3545",
+        ButtonGrad = "#007AFF"
+    };
+
+    public static ThemeSettings Sandstone => new()
+    {
+        BgDeep = "#F4EFEA", BgSurface = "#FAF6F0", BgCard = "#EFEAE4",
+        BgElevated = "#E5DDD4", BorderSub = "#D5C9BC",
+        Accent = "#D97706", AccentAlt = "#B45309",
+        TextPrimary = "#2C2520", TextSec = "#786B60",
+        SuccessGreen = "#10B981", ErrorRed = "#EF4444",
+        ButtonGrad = "#8B4F30"
+    };
+
+    public static ThemeSettings MidnightGold => new()
+    {
+        BgDeep = "#0B0C10", BgSurface = "#111318", BgCard = "#181A22",
+        BgElevated = "#222530", BorderSub = "#2E3342",
+        Accent = "#D4AF37", AccentAlt = "#FFD700",
+        TextPrimary = "#F5F7FA", TextSec = "#8C92A6",
+        SuccessGreen = "#10B981", ErrorRed = "#EF4444",
+        ButtonGrad = "#9A7B1C"
+    };
+
+    public static ThemeSettings SunsetGlow => new()
+    {
+        BgDeep = "#180F0A", BgSurface = "#201610", BgCard = "#2C1E16",
+        BgElevated = "#38291F", BorderSub = "#4E3A2F",
+        Accent = "#F97316", AccentAlt = "#FB923C",
+        TextPrimary = "#FDE8E0", TextSec = "#A78B7E",
+        SuccessGreen = "#10B981", ErrorRed = "#EF4444",
+        ButtonGrad = "#C2410C"
+    };
+
+    public static ThemeSettings Amethyst => new()
+    {
+        BgDeep = "#0F0B18", BgSurface = "#171224", BgCard = "#201A30",
+        BgElevated = "#2A223E", BorderSub = "#3C2F59",
+        Accent = "#A855F7", AccentAlt = "#C084FC",
+        TextPrimary = "#F3E8FF", TextSec = "#A78BFA",
+        SuccessGreen = "#10B981", ErrorRed = "#EF4444",
+        ButtonGrad = "#7E22CE"
+    };
+
+    public static ThemeSettings MintFresh => new()
+    {
+        BgDeep = "#D0F2ECF0", BgSurface = "#A0EAF0E6", BgCard = "#80EDF8F5",
+        BgElevated = "#90E0F0EB", BorderSub = "#300D4D3D",
+        Accent = "#059669", AccentAlt = "#10B981",
+        TextPrimary = "#111827", TextSec = "#4B5563",
+        SuccessGreen = "#10B981", ErrorRed = "#EF4444",
+        ButtonGrad = "#047857"
+    };
+
+    public static ThemeSettings CrimsonRed => new()
+    {
+        BgDeep = "#12080A", BgSurface = "#1A0E10", BgCard = "#251518",
+        BgElevated = "#301B1E", BorderSub = "#4A272D",
+        Accent = "#E11D48", AccentAlt = "#F43F5E",
+        TextPrimary = "#FFE4E6", TextSec = "#FDA4AF",
+        SuccessGreen = "#10B981", ErrorRed = "#EF4444",
+        ButtonGrad = "#BE123C"
+    };
+
+    public static ThemeSettings CyberLime => new()
+    {
+        BgDeep = "#0A0D0A", BgSurface = "#101610", BgCard = "#162016",
+        BgElevated = "#202C20", BorderSub = "#2E3F2E",
+        Accent = "#84CC16", AccentAlt = "#A3E635",
+        TextPrimary = "#ECFCCB", TextSec = "#A3E635",
+        SuccessGreen = "#22C55E", ErrorRed = "#EF4444",
+        ButtonGrad = "#4D7C0F"
+    };
+
+    private static readonly string _customPresetsPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "ReelsConverter", "custom_presets.json");
+
+    public static System.Collections.Generic.List<ThemeSettings> LoadCustomPresets()
+    {
+        try
+        {
+            if (File.Exists(_customPresetsPath))
+            {
+                return JsonSerializer.Deserialize<System.Collections.Generic.List<ThemeSettings>>(
+                    File.ReadAllText(_customPresetsPath), _opts) ?? new();
+            }
+        }
+        catch { }
+        return new System.Collections.Generic.List<ThemeSettings>();
+    }
+
+    public static void SaveCustomPresets(System.Collections.Generic.List<ThemeSettings> presets)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(_customPresetsPath)!);
+            File.WriteAllText(_customPresetsPath, JsonSerializer.Serialize(presets, _opts));
+        }
+        catch { }
+    }
 }

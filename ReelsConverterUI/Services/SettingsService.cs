@@ -34,5 +34,20 @@ public static class SettingsService
         Current = settings;
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         File.WriteAllText(_path, JsonSerializer.Serialize(settings, _opts));
+        ApplyScrollbarVisibility();
+    }
+
+    public static void ApplyScrollbarVisibility()
+    {
+        var s = Current;
+        var width = s.HideScrollbars ? 0.0 : 6.0;
+        var height = s.HideScrollbars ? 0.0 : 6.0;
+
+        if (System.Windows.Application.Current != null)
+        {
+            var res = System.Windows.Application.Current.Resources;
+            res["GlobalScrollBarWidth"] = width;
+            res["GlobalScrollBarHeight"] = height;
+        }
     }
 }
