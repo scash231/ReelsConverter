@@ -17,14 +17,39 @@ public partial class LogViewerWindow : Window
         InitializeComponent();
         _originRect = originRect;
         TxtLog.Text = logContent;
+        SourceInitialized += OnSourceInitialized;
         Loaded += OnLoaded;
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private void OnSourceInitialized(object? sender, EventArgs e)
     {
         if (Services.SettingsService.Current.BlurLogViewer)
         {
             Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+        }
+    }
+
+    private void WindowCornerGrip_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed)
+            Services.SettingsService.StartWindowResizeBottomRight(this);
+    }
+
+    private void WindowCornerGrip_MouseEnter(object sender, MouseEventArgs e)
+        => Services.SettingsService.HandleGripHover(sender, true);
+
+    private void WindowCornerGrip_MouseLeave(object sender, MouseEventArgs e)
+        => Services.SettingsService.HandleGripHover(sender, false);
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        Services.SettingsService.SettingsChanged += (_, _) => Services.SettingsService.ApplyResizeGripVisibility(this);
+        Services.SettingsService.ApplyResizeGripVisibility(this);
+        Services.SettingsService.ApplyWindowSize(this);
+        if (Services.SettingsService.Current.BlurLogViewer)
+        {
+            Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+            Services.WindowBlurHelper.ApplyRoundedRegion(this);
         }
         FluidMotion.MorphOpen(RootBorder, WinScale, WinTranslate, _originRect, this);
         TxtLog.ScrollToEnd();

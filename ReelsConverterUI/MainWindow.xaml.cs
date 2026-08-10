@@ -49,11 +49,32 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        SourceInitialized += OnSourceInitialized;
         Loaded += OnLoaded;
         Closing += MainWindow_Closing;
         SizeChanged += (_, _) => UpdateWindowGradient();
         ThemeService.ThemeApplied += OnThemeApplied;
     }
+
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        if (SettingsService.Current.BlurMainWindow)
+        {
+            Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+        }
+    }
+
+    private void WindowCornerGrip_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed)
+            SettingsService.StartWindowResizeBottomRight(this);
+    }
+
+    private void WindowCornerGrip_MouseEnter(object sender, MouseEventArgs e)
+        => SettingsService.HandleGripHover(sender, true);
+
+    private void WindowCornerGrip_MouseLeave(object sender, MouseEventArgs e)
+        => SettingsService.HandleGripHover(sender, false);
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
@@ -68,6 +89,10 @@ public partial class MainWindow : Window
     private void OnThemeApplied()
     {
         RefreshDominantColorVisuals();
+        if (ThemeService.Current.DisableThumbnailCard)
+            BorderMeta.Visibility = Visibility.Collapsed;
+        else if (_meta != null)
+            BorderMeta.Visibility = Visibility.Visible;
     }
 
     private void CloseWithAnimation()
@@ -99,6 +124,9 @@ public partial class MainWindow : Window
     // ════════════════════════════════════════════════════════════
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        SettingsService.SettingsChanged += (_, _) => SettingsService.ApplyResizeGripVisibility(this);
+        SettingsService.ApplyResizeGripVisibility(this);
+        ThemeService.ThemeApplied += () => Dispatcher.Invoke(RefreshDominantColorVisuals);
         ApplySettings();
         FluidMotion.SetCornerRadiusValue(SegmentIndicator, 50);
         Mode_Changed(sender, e);
@@ -106,6 +134,7 @@ public partial class MainWindow : Window
         if (SettingsService.Current.BlurMainWindow)
         {
             Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+            Services.WindowBlurHelper.ApplyRoundedRegion(this);
         }
 
         Activated += (_, _) =>
@@ -164,6 +193,13 @@ public partial class MainWindow : Window
         if (!IsLoaded) return;
 
         bool toDownload = RbDownload?.IsChecked == true;
+        var targetPanel = toDownload ? BorderDownload : BorderUpload;
+        var otherPanel = toDownload ? BorderUpload : BorderDownload;
+
+        if (targetPanel.Visibility == Visibility.Visible && targetPanel.Opacity >= 0.95 && otherPanel.Visibility == Visibility.Collapsed)
+        {
+            return;
+        }
 
         // ── Pill indicator: animated only for taps (drag handles its own pill) ──
         if (!_pillSnapFromDrag && SegmentIndicator != null && RbUpload.ActualWidth > 0)
@@ -363,11 +399,68 @@ public partial class MainWindow : Window
             TxtUrl.Text = Clipboard.GetText().Trim();
     }
 
+    private List<ComboBoxItem>? _videoQualityItems;
+    private List<ComboBoxItem>? _ytmusicQualityItems;
+    private bool? _isYTMusicActiveState = null;
+
+    private void EnsureQualityItemLists()
+    {
+        if (_videoQualityItems == null && CmbItemBest != null && CmbItem1080 != null && CmbItem720 != null && CmbItem480 != null && CmbItem360 != null && CmbItemAudio != null)
+        {
+            _videoQualityItems = new List<ComboBoxItem>
+            {
+                CmbItemBest, CmbItem1080, CmbItem720, CmbItem480, CmbItem360, CmbItemAudio
+            };
+        }
+        if (_ytmusicQualityItems == null && CmbItemYt320 != null && CmbItemYtM4a != null && CmbItemYtFlac != null)
+        {
+            _ytmusicQualityItems = new List<ComboBoxItem>
+            {
+                CmbItemYt320, CmbItemYtM4a, CmbItemYtFlac
+            };
+        }
+    }
+
+    private void UpdateQualityOptionsVisibility(bool isYTMusic)
+    {
+        if (CmbQuality == null) return;
+        EnsureQualityItemLists();
+
+        if (_isYTMusicActiveState == isYTMusic) return;
+        _isYTMusicActiveState = isYTMusic;
+
+        CmbQuality.Items.Clear();
+
+        if (isYTMusic && _ytmusicQualityItems != null)
+        {
+            foreach (var item in _ytmusicQualityItems)
+            {
+                item.Visibility = Visibility.Visible;
+                CmbQuality.Items.Add(item);
+            }
+            CmbQuality.SelectedItem = CmbItemYt320;
+        }
+        else if (_videoQualityItems != null)
+        {
+            foreach (var item in _videoQualityItems)
+            {
+                item.Visibility = Visibility.Visible;
+                CmbQuality.Items.Add(item);
+            }
+            CmbQuality.SelectedItem = CmbItemBest;
+        }
+    }
+
     private void TxtUrl_TextChanged(object sender, TextChangedEventArgs e)
     {
         var url = TxtUrl.Text.Trim().ToLowerInvariant();
         string? platform = null;
-        if (url.Contains("instagram.com") || url.Contains("instagr.am"))
+        bool isYTMusic = url.Contains("music.youtube.com");
+        UpdateQualityOptionsVisibility(isYTMusic);
+
+        if (isYTMusic)
+            platform = "YouTube Music";
+        else if (url.Contains("instagram.com") || url.Contains("instagr.am"))
             platform = "Instagram";
         else if (url.Contains("tiktok.com") || url.Contains("vm.tiktok"))
             platform = "TikTok";
@@ -430,25 +523,53 @@ public partial class MainWindow : Window
         try
         {
             DevLog($"Fetching metadata for: {url}");
-            _meta = await _backend.FetchMetadataAsync(url);
+            if (url.ToLowerInvariant().Contains("music.youtube.com"))
+                _meta = await _backend.FetchYTMusicMetadataAsync(url);
+            else
+                _meta = await _backend.FetchMetadataAsync(url);
+
             if (_meta is null) { Warn(L("ErrNoMeta")); return; }
 
             TxtMetaTitle.Text = _meta.Title;
-            TxtMetaUploader.Text = $"👤 {_meta.Uploader}";
+            var uploaderName = !string.IsNullOrEmpty(_meta.Artist) ? _meta.Artist : _meta.Uploader;
+            TxtMetaUploader.Text = $"👤 {uploaderName}";
             TxtMetaDuration.Text = $"⏱ {TimeSpan.FromSeconds(_meta.Duration):mm\\:ss}";
             TagsList.ItemsSource = _meta.Tags.Take(8).Select(t => $"#{t}").ToList();
             LoadThumbnail(_meta.Thumbnail);
 
+            bool isYTMusic = _meta.IsMusic || url.ToLowerInvariant().Contains("music.youtube.com");
+            UpdateQualityOptionsVisibility(isYTMusic);
+
+            if (isYTMusic)
+            {
+                BorderYTMusicBadge.Visibility = Visibility.Visible;
+                if (!string.IsNullOrEmpty(_meta.Album))
+                {
+                    TxtMetaAlbum.Text = $"💿 {_meta.Album}";
+                    TxtMetaAlbum.Visibility = Visibility.Visible;
+                }
+                else
+                {
+                    TxtMetaAlbum.Visibility = Visibility.Collapsed;
+                }
+            }
+            else
+            {
+                BorderYTMusicBadge.Visibility = Visibility.Collapsed;
+                TxtMetaAlbum.Visibility = Visibility.Collapsed;
+            }
+
             TxtTitle.Text = _meta.Title;
             TxtTitleDl.Text = _meta.Title;
             TxtDescription.Text = _meta.Description;
-            DevLog($"Metadata loaded: \"{_meta.Title}\" by {_meta.Uploader} ({_meta.Duration:F0}s, {_meta.Tags.Count} tags)");
+            DevLog($"Metadata loaded: \"{_meta.Title}\" by {uploaderName} ({_meta.Duration:F0}s, {_meta.Tags.Count} tags)");
 
             AnimatePanel(BorderMeta, true);
             SetStatus(L("StatusMetaLoaded"), true);
         }
         catch (Exception ex)
         {
+            DevLog($"Error fetching metadata: {ex.Message}");
             Warn($"{L("ErrPrefix")} {ex.Message}");
             SetStatus(L("StatusLoadErr"), false);
         }
@@ -501,14 +622,23 @@ public partial class MainWindow : Window
 
     private void RefreshDominantColorVisuals()
     {
+        var mode = ThemeService.Current?.GradientEffectMode ?? "thumbnail_only";
+        if (mode == "none")
+        {
+            ResetThumbBackground();
+            return;
+        }
+
         if (_lastDominantColor is Color color)
         {
-            var baseCardObj = FindResource("BgCard");
-            var baseCard = baseCardObj is SolidColorBrush scb ? scb.Color : Color.FromRgb(32, 32, 36);
+            var baseCardObj = FindResource("InputBg");
+            var baseCard = baseCardObj is SolidColorBrush scb ? scb.Color : Color.FromArgb(0x0A, 255, 255, 255);
+            byte cardAlpha = baseCard.A;
 
-            // Gradient: dominant tint at top (~65%) fading to base card at bottom
-            const double a = 0.65;
-            var cardTint = Color.FromRgb(
+            // Gradient: subtle dominant tint at top fading to base InputBg at bottom while preserving glass material transparency
+            const double a = 0.25;
+            var cardTint = Color.FromArgb(
+                (byte)Math.Max((int)cardAlpha, 0x1A),
                 (byte)(baseCard.R * (1 - a) + color.R * a),
                 (byte)(baseCard.G * (1 - a) + color.G * a),
                 (byte)(baseCard.B * (1 - a) + color.B * a));
@@ -527,29 +657,35 @@ public partial class MainWindow : Window
             };
             BorderMeta.Background = gradient;
 
-            // Measure position and update window gradient
-            bool wasCollapsed = BorderMeta.Visibility == Visibility.Collapsed;
-            if (wasCollapsed)
+            if (mode == "both")
             {
-                BorderMeta.Visibility = Visibility.Visible;
+                // Measure position and update window gradient
+                bool wasCollapsed = BorderMeta.Visibility == Visibility.Collapsed;
+                if (wasCollapsed)
+                {
+                    BorderMeta.Visibility = Visibility.Visible;
+                }
+
+                RootBorder.UpdateLayout();
+                UpdateWindowGradient();
+
+                if (wasCollapsed)
+                {
+                    BorderMeta.Visibility = Visibility.Collapsed;
+                }
+            }
+            else
+            {
+                RootBorder.SetResourceReference(Border.BackgroundProperty, "BgDeep");
             }
 
-            RootBorder.UpdateLayout();
-            UpdateWindowGradient();
-
-            if (wasCollapsed)
-            {
-                BorderMeta.Visibility = Visibility.Collapsed;
-            }
-
-            // Stronger tint for the thumbnail container (visible in letterbox gaps)
-            var baseElevObj = FindResource("BgElevated");
-            var baseElev = baseElevObj is SolidColorBrush scbElev ? scbElev.Color : Color.FromRgb(42, 42, 46);
-            const double b = 0.40;
-            var thumbBg = Color.FromRgb(
-                (byte)(baseElev.R * (1 - b) + color.R * b),
-                (byte)(baseElev.G * (1 - b) + color.G * b),
-                (byte)(baseElev.B * (1 - b) + color.B * b));
+            // Subtle tint for the thumbnail container (visible in letterbox gaps)
+            const double b = 0.30;
+            var thumbBg = Color.FromArgb(
+                (byte)Math.Max((int)cardAlpha, 0x22),
+                (byte)(baseCard.R * (1 - b) + color.R * b),
+                (byte)(baseCard.G * (1 - b) + color.G * b),
+                (byte)(baseCard.B * (1 - b) + color.B * b));
 
             ThumbBgBorder.Background = new SolidColorBrush(thumbBg);
         }
@@ -585,7 +721,7 @@ public partial class MainWindow : Window
 
     private void ResetThumbBackground()
     {
-        BorderMeta.SetResourceReference(Border.BackgroundProperty, "BgCard");
+        BorderMeta.SetResourceReference(Border.BackgroundProperty, "InputBg");
         ThumbBgBorder.SetResourceReference(Border.BackgroundProperty, "BgElevated");
 
         _lastDominantColor = null;
@@ -652,7 +788,8 @@ public partial class MainWindow : Window
 
     private static Color Tint(Color baseColor, Color tintColor, double ratio)
     {
-        return Color.FromRgb(
+        return Color.FromArgb(
+            baseColor.A,
             (byte)(baseColor.R * (1 - ratio) + tintColor.R * ratio),
             (byte)(baseColor.G * (1 - ratio) + tintColor.G * ratio),
             (byte)(baseColor.B * (1 - ratio) + tintColor.B * ratio));
@@ -666,27 +803,23 @@ public partial class MainWindow : Window
 
     private static string ToHex(Color c)
     {
+        if (c.A < 255)
+            return $"#{c.A:X2}{c.R:X2}{c.G:X2}{c.B:X2}";
         return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
     }
 
     internal static ThemeSettings CreateAdaptiveTheme(ThemeSettings baseTheme, Color dominant)
     {
-        return new ThemeSettings
-        {
-            BgDeep = ToHex(Tint(ParseHex(baseTheme.BgDeep), dominant, 0.15)),
-            BgSurface = ToHex(Tint(ParseHex(baseTheme.BgSurface), dominant, 0.18)),
-            BgCard = ToHex(Tint(ParseHex(baseTheme.BgCard), dominant, 0.22)),
-            BgElevated = ToHex(Tint(ParseHex(baseTheme.BgElevated), dominant, 0.26)),
-            BorderSub = ToHex(Tint(ParseHex(baseTheme.BorderSub), dominant, 0.30)),
-            Accent = ToHex(Tint(ParseHex(baseTheme.Accent), dominant, 0.75)),
-            AccentAlt = ToHex(Tint(ParseHex(baseTheme.AccentAlt), dominant, 0.75)),
-            ButtonGrad = ToHex(Tint(ParseHex(baseTheme.ButtonGrad), dominant, 0.65)),
-            TextPrimary = baseTheme.TextPrimary,
-            TextSec = baseTheme.TextSec,
-            SuccessGreen = baseTheme.SuccessGreen,
-            ErrorRed = baseTheme.ErrorRed,
-            AdaptiveThumbnailTheme = baseTheme.AdaptiveThumbnailTheme
-        };
+        var adaptive = baseTheme.Clone();
+        adaptive.BgDeep = ToHex(Tint(ParseHex(baseTheme.BgDeep), dominant, 0.15));
+        adaptive.BgSurface = ToHex(Tint(ParseHex(baseTheme.BgSurface), dominant, 0.18));
+        adaptive.BgCard = ToHex(Tint(ParseHex(baseTheme.BgCard), dominant, 0.22));
+        adaptive.BgElevated = ToHex(Tint(ParseHex(baseTheme.BgElevated), dominant, 0.26));
+        adaptive.BorderSub = ToHex(Tint(ParseHex(baseTheme.BorderSub), dominant, 0.30));
+        adaptive.Accent = ToHex(Tint(ParseHex(baseTheme.Accent), dominant, 0.75));
+        adaptive.AccentAlt = ToHex(Tint(ParseHex(baseTheme.AccentAlt), dominant, 0.75));
+        adaptive.ButtonGrad = ToHex(Tint(ParseHex(baseTheme.ButtonGrad), dominant, 0.65));
+        return adaptive;
     }
 
     private static Color GetDominantColor(BitmapSource bmp)
@@ -755,7 +888,7 @@ public partial class MainWindow : Window
         var title = isUpload ? TxtTitle.Text.Trim() : TxtTitleDl.Text.Trim();
         var quality = (CmbQuality.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "best";
 
-        BtnStart.IsEnabled = false;
+        _isJobRunning = true;
         BtnFetch.IsEnabled = false;
         HideOpenFolderBar();
         _lastDownloadedFolder = null;
@@ -766,7 +899,7 @@ public partial class MainWindow : Window
         _logViewer?.Close();
 
         _cts = new CancellationTokenSource();
-        _progressWin = new ProgressWindow(_cts, GetBtnRect(BtnStart)) { Owner = this };
+        _progressWin = new ProgressWindow(_cts, GetBtnRect(StartContainer)) { Owner = this };
         _progressWin.Closed += (_, _) =>
         {
             _lastJobLog = _progressWin?.LogContent ?? string.Empty;
@@ -774,15 +907,10 @@ public partial class MainWindow : Window
             var hasLog = !string.IsNullOrEmpty(_lastJobLog);
             BtnMainLog.IsEnabled = hasLog;
             if (!hasLog) BtnMainLog.Visibility = Visibility.Collapsed;
-            // Always send cancel to the backend – it ignores already-completed jobs.
             if (_currentJobId != null)
                 _ = _backend.CancelJobAsync(_currentJobId);
             if (!_cts.IsCancellationRequested)
                 _cts.Cancel();
-        };
-        _progressWin.OnHiddenInBackground += (sender, args) =>
-        {
-            HighlightMiniProgress(true);
         };
         BtnMainLog.IsEnabled = true;
         ShowLogButton();
@@ -796,22 +924,18 @@ public partial class MainWindow : Window
         _progressWin.UpdateProgress(0, "Starte…", "Verbinde mit Backend…");
         _progressWin.AppendLog("Verbinde mit Backend…");
 
-        // Premium: reset and reveal miniature progress bar capsule next to version info
-        MiniProgressFill.Width = 0;
-        FluidMotion.RevealElement(MiniProgressContainer);
-
-        if (!autoShow)
-        {
-            HighlightMiniProgress(true);
-        }
+        UpdateMiniProgress(0, "Verbinde mit Backend…");
 
         try
         {
-            DevLog($"Creating job: mode={( isUpload ? "upload" : "download" )}, fingerprint={fingerprint} ({fingerprintMethod}), quality={quality}");
+            bool isYTMusic = url.ToLowerInvariant().Contains("music.youtube.com") || (_meta?.IsMusic ?? false) || (quality?.StartsWith("ytmusic") ?? false);
+            string platformParam = isYTMusic ? "ytmusic" : "auto";
+
+            DevLog($"Creating job: mode={( isUpload ? "upload" : "download" )}, platform={platformParam}, fingerprint={fingerprint} ({fingerprintMethod}), quality={quality}");
             _currentJobId = await _backend.CreateJobAsync(
                 url,
                 isUpload ? "upload" : "download",
-                "auto",
+                platformParam,
                 title,
                 TxtDescription.Text.Trim(),
                 _meta?.Tags,
@@ -828,8 +952,8 @@ public partial class MainWindow : Window
             await foreach (var status in _backend.StreamJobAsync(_currentJobId, _cts.Token))
                 {
                     var detail = "";
-                    _progressWin?.UpdateProgress(status.Progress, status.Message, detail, status.Eta);
-                    FluidMotion.AnimateProgressWidth(MiniProgressFill, 80.0 * status.Progress / 100.0);
+                    _progressWin?.UpdateProgress(status.Progress, status.Message, detail, status.Eta, status.Speed);
+                    UpdateMiniProgress(status.Progress, status.Message);
                     if (!string.IsNullOrEmpty(status.Message))
                     {
                         var entry = $"{status.Progress}% \u2013 {status.Message}";
@@ -842,18 +966,18 @@ public partial class MainWindow : Window
 
                     if (status.Status == "completed")
                     {
-                        _progressWin?.AppendLog("[OK] Abgeschlossen.");
-                        SetStatus(L("StatusCompleted"), true);
-
-                        string? folderPath = null;
-                        string? filePath = null;
-                        if (status.Result?.TryGetValue("file_path", out var fp) == true && fp is System.Text.Json.JsonElement je)
+                        var folderPath = "";
+                        var filePath = "";
+                        if (status.Result != null)
                         {
-                            filePath = je.GetString();
-                            if (!string.IsNullOrEmpty(filePath))
-                                folderPath = System.IO.Path.GetDirectoryName(filePath);
+                            if (status.Result.TryGetValue("file_path", out var fp))
+                                filePath = fp?.ToString() ?? "";
                         }
-                        else if (!string.IsNullOrWhiteSpace(TxtOutputDir.Text))
+                        if (!string.IsNullOrEmpty(filePath))
+                        {
+                            folderPath = System.IO.Path.GetDirectoryName(filePath) ?? "";
+                        }
+                        else if (!isUpload)
                         {
                             folderPath = TxtOutputDir.Text.Trim();
                         }
@@ -891,9 +1015,8 @@ public partial class MainWindow : Window
         finally
         {
             _currentJobId = null;
-            BtnStart.IsEnabled = true;
             BtnFetch.IsEnabled = true;
-            FluidMotion.DismissElement(MiniProgressContainer);
+            ResetStartContainerToIdle();
         }
     }
 
@@ -903,30 +1026,97 @@ public partial class MainWindow : Window
     private static string L(string key)
         => Application.Current.Resources[key] as string ?? key;
 
-    private void LangDE_Click(object s, RoutedEventArgs e) => SetLanguage("de");
-    private void LangEN_Click(object s, RoutedEventArgs e) => SetLanguage("en");
+    private DateTime _langPopupClosedTime = DateTime.MinValue;
+
+    private void LangPopup_Closed(object sender, EventArgs e)
+    {
+        _langPopupClosedTime = DateTime.UtcNow;
+        TxtLangArrow.Text = ">>";
+    }
+
+    private void LangPill_Click(object s, RoutedEventArgs e)
+    {
+        if (LangPopup == null) return;
+        if ((DateTime.UtcNow - _langPopupClosedTime).TotalMilliseconds < 250)
+        {
+            return;
+        }
+
+        LangPopup.PlacementTarget = BtnLangPill;
+        if (!LangPopup.IsOpen)
+        {
+            UpdateLanguageCheckmarks();
+            LangPopup.IsOpen = true;
+            TxtLangArrow.Text = "⌄⌄";
+            AnimatePopupIn(LangPopupBorder);
+        }
+        else
+        {
+            TxtLangArrow.Text = ">>";
+            AnimatePopupOut(LangPopupBorder, () => LangPopup.IsOpen = false);
+        }
+    }
+
+    private void SelectLang_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is string lang)
+        {
+            SetLanguage(lang);
+            AnimatePopupOut(LangPopupBorder, () => LangPopup.IsOpen = false);
+        }
+    }
+
+    private void UpdateLanguageCheckmarks()
+    {
+        if (CheckLangDE != null) CheckLangDE.Visibility = _currentLang == "de" ? Visibility.Visible : Visibility.Collapsed;
+        if (CheckLangEN != null) CheckLangEN.Visibility = _currentLang == "en" ? Visibility.Visible : Visibility.Collapsed;
+        if (CheckLangES != null) CheckLangES.Visibility = _currentLang == "es" ? Visibility.Visible : Visibility.Collapsed;
+        if (CheckLangFR != null) CheckLangFR.Visibility = _currentLang == "fr" ? Visibility.Visible : Visibility.Collapsed;
+        if (CheckLangIT != null) CheckLangIT.Visibility = _currentLang == "it" ? Visibility.Visible : Visibility.Collapsed;
+        if (CheckLangJA != null) CheckLangJA.Visibility = _currentLang == "ja" ? Visibility.Visible : Visibility.Collapsed;
+        if (CheckLangZH != null) CheckLangZH.Visibility = _currentLang == "zh" ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void SetLanguage(string lang)
     {
-        if (_currentLang == lang) return;
         _currentLang = lang;
 
-        BtnLangDE.Foreground = lang == "de"
-            ? (Brush)Application.Current.Resources["Accent"]
-            : (Brush)Application.Current.Resources["TextSec"];
-        BtnLangEN.Foreground = lang == "en"
-            ? (Brush)Application.Current.Resources["Accent"]
-            : (Brush)Application.Current.Resources["TextSec"];
+        if (TxtCurrentLang != null)
+            TxtCurrentLang.Text = lang.ToUpperInvariant();
+
+        UpdateLanguageCheckmarks();
 
         var dicts = Application.Current.Resources.MergedDictionaries;
-        var old = dicts.FirstOrDefault(d => d.Contains("LangCode"));
-        if (old != null) dicts.Remove(old);
+        
+        // Remove all previous language override dictionaries
+        var oldLangs = dicts.Where(d => d.Contains("LangCode")).ToList();
+        foreach (var old in oldLangs) dicts.Remove(old);
 
-        var src = lang == "en" ? "Assets/Strings.en.xaml" : "Assets/Strings.de.xaml";
-        dicts.Add(new ResourceDictionary
+        // Always ensure base English dictionary is loaded as fallback
+        var enDict = dicts.FirstOrDefault(d => d.Source != null && d.Source.OriginalString.Contains("Strings.en.xaml"));
+        if (enDict == null)
         {
-            Source = new Uri($"pack://application:,,,/ReelsConverterUI;component/{src}")
-        });
+            dicts.Insert(0, new ResourceDictionary
+            {
+                Source = new Uri("pack://application:,,,/ReelsConverterUI;component/Assets/Strings.en.xaml")
+            });
+        }
+
+        if (lang != "en")
+        {
+            var src = $"Assets/Strings.{lang}.xaml";
+            try
+            {
+                dicts.Add(new ResourceDictionary
+                {
+                    Source = new Uri($"pack://application:,,,/ReelsConverterUI;component/{src}")
+                });
+            }
+            catch { }
+        }
+
+        SettingsService.Current.Language = lang;
+        SettingsService.Save(SettingsService.Current);
     }
 
     private void MiniProgress_Click(object sender, MouseButtonEventArgs e)
@@ -945,6 +1135,132 @@ public partial class MainWindow : Window
                 _progressWin.Activate();
             }
             _progressWin.EnsureLogOpen();
+        }
+    }
+
+    private bool _isJobRunning = false;
+
+    private void StartContainer_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (_isJobRunning)
+        {
+            if (_progressWin != null)
+            {
+                if (_progressWin.Visibility != Visibility.Visible)
+                    _progressWin.ShowWithAnimation();
+                else
+                {
+                    if (_progressWin.WindowState == WindowState.Minimized)
+                        _progressWin.WindowState = WindowState.Normal;
+                    _progressWin.Activate();
+                }
+                _progressWin.EnsureLogOpen();
+            }
+            return;
+        }
+
+        Start_Click(sender, e);
+    }
+
+    private double _currentMiniProgressPercent = 0;
+
+    private static string GetMinimalStatusLabel(string rawMsg, double percentage)
+    {
+        if (string.IsNullOrWhiteSpace(rawMsg))
+            return $"{percentage:0}%";
+
+        string lower = rawMsg.ToLowerInvariant();
+
+        if (lower.Contains("fingerprint"))
+        {
+            return $"Fingerprint Bypass   {percentage:0}%";
+        }
+        if (lower.Contains("upload"))
+        {
+            return $"YouTube Upload   {percentage:0}%";
+        }
+        if (lower.Contains("export"))
+        {
+            return $"Export   {percentage:0}%";
+        }
+        if (lower.Contains("merg") || lower.Contains("zusammenführ") || lower.Contains("zusammenfüg"))
+        {
+            return $"Merging   {percentage:0}%";
+        }
+        if (lower.Contains("download audio") || (lower.Contains("audio") && lower.Contains("download")))
+        {
+            return $"Download Audio   {percentage:0}%";
+        }
+        if (lower.Contains("download video") || lower.Contains("download") || lower.Contains("lade"))
+        {
+            return $"Download Video   {percentage:0}%";
+        }
+        if (lower.Contains("verbinde") || lower.Contains("starte"))
+        {
+            return $"Starte   {percentage:0}%";
+        }
+
+        var title = rawMsg;
+        if (title.StartsWith("["))
+        {
+            var idx = title.IndexOf(']');
+            if (idx >= 0 && idx + 1 < title.Length)
+                title = title.Substring(idx + 1).Trim();
+        }
+        if (title.Contains(":"))
+        {
+            title = title.Split(':')[0].Trim();
+        }
+        title = title.TrimEnd('.', '…');
+
+        return $"{title}   {percentage:0}%";
+    }
+
+    private void UpdateMiniProgress(double percentage, string? statusMsg = null)
+    {
+        _currentMiniProgressPercent = percentage;
+
+        if (StartContainer != null && StartProgressFill != null)
+        {
+            if (StartIdleBg != null) StartIdleBg.Visibility = Visibility.Collapsed;
+            if (StartTrackGroove != null) StartTrackGroove.Visibility = Visibility.Visible;
+            if (StartProgressFill != null) StartProgressFill.Visibility = Visibility.Visible;
+
+            double containerWidth = StartContainer.ActualWidth;
+            if (containerWidth <= 0) containerWidth = 300.0;
+            double maxFillWidth = Math.Max(0, containerWidth - 6.0);
+
+            double targetWidth = 0;
+            if (percentage > 0)
+            {
+                targetWidth = Math.Clamp(maxFillWidth * (percentage / 100.0), 34.0, maxFillWidth);
+            }
+
+            FluidMotion.AnimateProgressWidth(StartProgressFill, targetWidth);
+
+            if (TxtStartLabel != null && !string.IsNullOrWhiteSpace(statusMsg))
+            {
+                TxtStartLabel.Text = GetMinimalStatusLabel(statusMsg, percentage);
+            }
+        }
+    }
+
+    private void ResetStartContainerToIdle()
+    {
+        _isJobRunning = false;
+        _currentMiniProgressPercent = 0;
+        if (StartIdleBg != null) StartIdleBg.Visibility = Visibility.Visible;
+        if (StartTrackGroove != null) StartTrackGroove.Visibility = Visibility.Collapsed;
+        if (StartProgressFill != null) StartProgressFill.Visibility = Visibility.Collapsed;
+        if (StartProgressFill != null) StartProgressFill.Width = 0;
+        if (TxtStartLabel != null) TxtStartLabel.SetResourceReference(TextBlock.TextProperty, "BtnStart");
+    }
+
+    private void MiniProgressContainer_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_currentMiniProgressPercent > 0)
+        {
+            UpdateMiniProgress(_currentMiniProgressPercent);
         }
     }
 
@@ -969,8 +1285,8 @@ public partial class MainWindow : Window
         }
         else
         {
-            // Reset border brush to standard transparent white
-            MiniProgressContainer.BorderBrush = new SolidColorBrush(Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF));
+            // Reset border brush to standard BorderSub
+            MiniProgressContainer.BorderBrush = TryFindResource("BorderSub") as Brush ?? new SolidColorBrush(Color.FromArgb(0x20, 0xFF, 0xFF, 0xFF));
 
             // Stop glow storyboard
             if (MiniProgressContainer.Resources["GlowPulse"] is Storyboard sb)
@@ -1011,17 +1327,24 @@ public partial class MainWindow : Window
     // ════════════════════════════════════════════════════════════
     private void Editor_Click(object s, RoutedEventArgs e)
     {
-        foreach (Window w in OwnedWindows)
+        if (Services.SettingsService.Current.EnableDeveloperMode)
         {
-            if (w is EditorWindow existing)
+            foreach (Window w in OwnedWindows)
             {
-                existing.Focus();
-                return;
+                if (w is EditorWindow existing)
+                {
+                    existing.Focus();
+                    return;
+                }
             }
-        }
 
-        var win = new EditorWindow(GetBtnRect((UIElement)s)) { Owner = this };
-        win.Show();
+            var win = new EditorWindow(GetBtnRect((UIElement)s)) { Owner = this };
+            win.Show();
+        }
+        else
+        {
+            NotificationWindow.Show(L("ErrEditorDisabled"), this, NotificationType.Warning);
+        }
     }
 
     // ════════════════════════════════════════════════════════════
@@ -1073,7 +1396,9 @@ public partial class MainWindow : Window
         SelectComboByTag(CmbFingerprintMethodDl, s.DefaultFingerprintDlMethod);
         BorderDevConsole.Visibility = s.DevConsoleEnabled && _devConsoleWin == null
             ? Visibility.Visible : Visibility.Collapsed;
+        UpdateDevConsoleSpacing();
         if (!s.DevConsoleEnabled) _devConsoleWin?.Close();
+        SettingsService.ApplyWindowSize(this);
         SettingsService.ApplyScrollbarVisibility();
     }
 
@@ -1094,6 +1419,9 @@ public partial class MainWindow : Window
         ImgThumbnail.Source = null;
         TxtMetaThumbFallback.Visibility = Visibility.Visible;
         ResetThumbBackground();
+        BorderYTMusicBadge.Visibility = Visibility.Collapsed;
+        TxtMetaAlbum.Visibility = Visibility.Collapsed;
+        UpdateQualityOptionsVisibility(false);
         AnimatePanel(BorderMeta, false);
     }
 
@@ -1290,21 +1618,28 @@ public partial class MainWindow : Window
 
     private void OpenInEditor_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrEmpty(_lastDownloadedFile) || !System.IO.File.Exists(_lastDownloadedFile))
-            return;
-
-        foreach (Window w in OwnedWindows)
+        if (Services.SettingsService.Current.EnableDeveloperMode)
         {
-            if (w is EditorWindow existing)
-            {
-                existing.Focus();
-                existing.LoadVideo(_lastDownloadedFile);
+            if (string.IsNullOrEmpty(_lastDownloadedFile) || !System.IO.File.Exists(_lastDownloadedFile))
                 return;
-            }
-        }
 
-        var win = new EditorWindow(GetBtnRect((UIElement)sender), _lastDownloadedFile) { Owner = this };
-        win.Show();
+            foreach (Window w in OwnedWindows)
+            {
+                if (w is EditorWindow existing)
+                {
+                    existing.Focus();
+                    existing.LoadVideo(_lastDownloadedFile);
+                    return;
+                }
+            }
+
+            var win = new EditorWindow(GetBtnRect((UIElement)sender), _lastDownloadedFile) { Owner = this };
+            win.Show();
+        }
+        else
+        {
+            NotificationWindow.Show(L("ErrEditorDisabled"), this, NotificationType.Warning);
+        }
     }
 
     private static void AnimatePopupIn(Border border)
@@ -1367,6 +1702,22 @@ public partial class MainWindow : Window
     // ════════════════════════════════════════════════════════════
     private void DevLog(string message)
     {
+        var category = "system";
+        var lower = message.ToLowerInvariant();
+        if (lower.Contains("[backend]") || lower.Contains("[ping]") || lower.Contains("[status]") || lower.Contains("[restart]") || lower.Contains("pinging backend") || lower.Contains("restarting backend"))
+        {
+            category = "backend";
+        }
+        else if (lower.Contains("[ffmpeg]") || lower.Contains("[yt-dlp]") || lower.Contains("ffmpeg") || lower.Contains("yt-dlp"))
+        {
+            category = "ffmpeg";
+        }
+
+        var s = SettingsService.Current;
+        if (category == "system" && !s.ConsoleShowSystem) return;
+        if (category == "backend" && !s.ConsoleShowBackend) return;
+        if (category == "ffmpeg" && !s.ConsoleShowFFmpeg) return;
+
         var line = $"[{DateTime.Now:HH:mm:ss.fff}] {message}";
         
         // Always record in the main TextBox buffer so history is never lost
@@ -1379,6 +1730,56 @@ public partial class MainWindow : Window
 
     private void ClearDevConsole_Click(object s, RoutedEventArgs e)
         => TxtDevConsole.Clear();
+
+    private void DevConsole_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            DetachDevConsole();
+            e.Handled = true;
+        }
+    }
+
+    private void DetachDevConsole_Click(object sender, RoutedEventArgs e)
+    {
+        DetachDevConsole();
+    }
+
+    private void DetachDevConsole()
+    {
+        if (_devConsoleWin != null)
+        {
+            _devConsoleWin.Focus();
+            return;
+        }
+
+        Rect originRect = GetBtnRect(BorderDevConsole);
+        _devConsoleWin = new DevConsoleWindow(TxtDevConsole.Text, originRect)
+        {
+            Owner = this,
+            Title = "Console"
+        };
+
+        _devConsoleWin.CommandEntered += (cmd) =>
+        {
+            HandleConsoleCommand(cmd);
+        };
+
+        _devConsoleWin.Closed += (_, _) =>
+        {
+            if (_devConsoleWin != null && _devConsoleWin.ReattachRequested)
+            {
+                BorderDevConsole.Visibility = Visibility.Visible;
+                UpdateDevConsoleSpacing();
+            }
+            _devConsoleWin = null;
+        };
+
+        BorderDevConsole.Visibility = Visibility.Collapsed;
+        UpdateDevConsoleSpacing();
+
+        _devConsoleWin.Show();
+    }
 
     private void CollapseDevConsole_Click(object s, RoutedEventArgs e)
     {
@@ -1511,6 +1912,23 @@ public partial class MainWindow : Window
             case "status":
                 DevLog($"[status] Backend Ready: {_backendReady}");
                 DevLog($"[status] Backend URL: {SettingsService.Current.BackendUrl}");
+                DevLog($"[status] Developer Mode: {(SettingsService.Current.EnableDeveloperMode ? "ENABLED" : "DISABLED")}");
+                break;
+            case "dev":
+            case "devmode":
+                DevLog($"[devmode] Developer Mode is {(SettingsService.Current.EnableDeveloperMode ? "ACTIVE (Video Editor & Dev Tools Unlocked)" : "INACTIVE (Video Editor Disabled)")}");
+                break;
+            case "editor":
+                if (SettingsService.Current.EnableDeveloperMode)
+                {
+                    DevLog("[editor] Launching Video Editor...");
+                    Editor_Click(this, new RoutedEventArgs());
+                }
+                else
+                {
+                    DevLog("[editor] Video Editor is blocked. Enable Developer Mode in Settings to unlock.");
+                    NotificationWindow.Show(L("ErrEditorDisabled"), this, NotificationType.Warning);
+                }
                 break;
             case "ping":
                 DevLog("Pinging backend server...");
@@ -1623,7 +2041,7 @@ public partial class MainWindow : Window
                 break;
             case "info":
                 DevLog("ReelsConverter developer console");
-                DevLog($"App version: v3.1");
+                DevLog($"App version: 26H2 Beta");
                 DevLog($"Language: {SettingsService.Current.Language}");
                 break;
             case "open":
@@ -1676,21 +2094,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void DetachDevConsole_Click(object s, RoutedEventArgs e)
+    private void UpdateDevConsoleSpacing()
     {
-        if (_devConsoleWin != null) { _devConsoleWin.Activate(); return; }
-        var originRect = GetBtnRect((UIElement)s);
-        _devConsoleWin = new DevConsoleWindow(TxtDevConsole.Text, originRect) { Owner = this };
-        _devConsoleWin.CommandEntered += HandleConsoleCommand;
-        _devConsoleWin.Closed += (_, _) =>
-        {
-            var reattach = _devConsoleWin?.ReattachRequested == true;
-            _devConsoleWin = null;
-            if (reattach && SettingsService.Current.DevConsoleEnabled)
-                BorderDevConsole.Visibility = Visibility.Visible;
-        };
-        BorderDevConsole.Visibility = Visibility.Collapsed;
-        _devConsoleWin.Show();
+        if (MainContentGrid == null) return;
+        bool isConsoleVisible = BorderDevConsole.Visibility == Visibility.Visible;
+        double bottomMargin = isConsoleVisible ? 7 : 14;
+        MainContentGrid.Margin = new Thickness(14, 6, 14, bottomMargin);
     }
 
     private void SetStatus(string text, bool ok)
@@ -1699,6 +2108,7 @@ public partial class MainWindow : Window
         if (ok)
         {
             BtnErrorStatus.Visibility = Visibility.Collapsed;
+            ErrorPillDivider.Visibility = Visibility.Collapsed;
             if (ErrorPopup.IsOpen) ErrorPopup.IsOpen = false;
         }
         else
@@ -1706,6 +2116,7 @@ public partial class MainWindow : Window
             TxtPopupErrorDetails.Text = text;
             TxtPopupErrorFix.Text = GetSuggestedFix(text);
             BtnErrorStatus.Visibility = Visibility.Visible;
+            ErrorPillDivider.Visibility = Visibility.Visible;
 
             // Show/hide Restart Backend button depending on error type
             var lower = text.ToLowerInvariant();
@@ -2154,7 +2565,7 @@ public partial class MainWindow : Window
 
     public async Task RunFfmpegExportJobAsync(string output, string args, string? srtPath, double trimDurationSecs)
     {
-        BtnStart.IsEnabled = false;
+        _isJobRunning = true;
         BtnFetch.IsEnabled = false;
         HideOpenFolderBar();
         _lastDownloadedFolder = null;
@@ -2165,7 +2576,7 @@ public partial class MainWindow : Window
         _logViewer?.Close();
 
         _cts = new CancellationTokenSource();
-        _progressWin = new ProgressWindow(_cts, GetBtnRect(BtnStart)) { Owner = this };
+        _progressWin = new ProgressWindow(_cts, GetBtnRect(StartContainer)) { Owner = this };
         
         _progressWin.Closed += (_, _) =>
         {
@@ -2176,11 +2587,6 @@ public partial class MainWindow : Window
             if (!hasLog) BtnMainLog.Visibility = Visibility.Collapsed;
             if (!_cts.IsCancellationRequested)
                 _cts.Cancel();
-        };
-
-        _progressWin.OnHiddenInBackground += (sender, args) =>
-        {
-            HighlightMiniProgress(true);
         };
 
         BtnMainLog.IsEnabled = true;
@@ -2195,14 +2601,7 @@ public partial class MainWindow : Window
         _progressWin.UpdateProgress(0, "Exportieren…", "Starte ffmpeg…");
         _progressWin.AppendLog("Exportiere Video mit ffmpeg…");
 
-        // Reveal miniature progress bar
-        MiniProgressFill.Width = 0;
-        FluidMotion.RevealElement(MiniProgressContainer);
-
-        if (!autoShow)
-        {
-            HighlightMiniProgress(true);
-        }
+        UpdateMiniProgress(0, "Exportieren…");
 
         try
         {
@@ -2247,7 +2646,7 @@ public partial class MainWindow : Window
                                     }
                                     
                                     _progressWin.UpdateProgress(progress, "Exportieren…", $"{progress}% abgeschlossen");
-                                    FluidMotion.AnimateProgressWidth(MiniProgressFill, 80.0 * progress / 100.0);
+                                    UpdateMiniProgress(progress, "Exportieren…");
                                 }
                             }
                         });
@@ -2280,11 +2679,8 @@ public partial class MainWindow : Window
             if (srtPath != null && System.IO.File.Exists(srtPath))
                 try { System.IO.File.Delete(srtPath); } catch { }
 
-            BtnStart.IsEnabled = true;
             BtnFetch.IsEnabled = true;
-
-            HighlightMiniProgress(false);
-            FluidMotion.DismissElement(MiniProgressContainer);
+            ResetStartContainerToIdle();
         }
     }
 }

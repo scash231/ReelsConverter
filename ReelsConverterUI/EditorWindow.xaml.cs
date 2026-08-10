@@ -47,14 +47,39 @@ public partial class EditorWindow : Window
         };
         _positionTimer.Tick += PositionTimer_Tick;
 
+        SourceInitialized += OnSourceInitialized;
         Loaded += OnLoaded;
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private void OnSourceInitialized(object? sender, EventArgs e)
     {
         if (SettingsService.Current.BlurEditor)
         {
             Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+        }
+    }
+
+    private void WindowCornerGrip_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed)
+            SettingsService.StartWindowResizeBottomRight(this);
+    }
+
+    private void WindowCornerGrip_MouseEnter(object sender, MouseEventArgs e)
+        => SettingsService.HandleGripHover(sender, true);
+
+    private void WindowCornerGrip_MouseLeave(object sender, MouseEventArgs e)
+        => SettingsService.HandleGripHover(sender, false);
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        SettingsService.SettingsChanged += (_, _) => SettingsService.ApplyResizeGripVisibility(this);
+        SettingsService.ApplyResizeGripVisibility(this);
+        SettingsService.ApplyWindowSize(this);
+        if (SettingsService.Current.BlurEditor)
+        {
+            Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+            Services.WindowBlurHelper.ApplyRoundedRegion(this);
         }
         FluidMotion.MorphOpen(RootBorder, WindowScale, WindowTranslate, _originRect, this);
 
@@ -506,6 +531,21 @@ public partial class EditorWindow : Window
 
             if (targetBorder == null) return;
 
+            Border? currentBorder = _currentTabIndex switch
+            {
+                0 => InspectorVideo,
+                1 => InspectorAudio,
+                2 => InspectorSubs,
+                3 => InspectorExport,
+                _ => null
+            };
+
+            if (targetBorder == currentBorder || (targetBorder.Visibility == Visibility.Visible && targetBorder.Opacity >= 0.95))
+            {
+                _currentTabIndex = newIndex;
+                return;
+            }
+
             if (!this.IsLoaded)
             {
                 if (InspectorVideo != null) InspectorVideo.Visibility = Visibility.Collapsed;
@@ -517,15 +557,6 @@ public partial class EditorWindow : Window
                 _currentTabIndex = newIndex;
                 return;
             }
-
-            Border? currentBorder = _currentTabIndex switch
-            {
-                0 => InspectorVideo,
-                1 => InspectorAudio,
-                2 => InspectorSubs,
-                3 => InspectorExport,
-                _ => null
-            };
 
             // Collapse other panels to prevent rapid clicking from showing multiple overlapping panels
             if (InspectorVideo != null && InspectorVideo != targetBorder && InspectorVideo != currentBorder) InspectorVideo.Visibility = Visibility.Collapsed;

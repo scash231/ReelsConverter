@@ -88,6 +88,8 @@
     <sys:String x:Key="SettingsBackendUrl">Backend URL</sys:String>
     <sys:String x:Key="SettingsBackendTimeout">Startup timeout (seconds)</sys:String>
     <sys:String x:Key="BtnSaveSettings">Save</sys:String>
+    <sys:String x:Key="BtnSaveOnly">Save</sys:String>
+    <sys:String x:Key="BtnSaveAndExit">Save &amp; Exit</sys:String>
     <sys:String x:Key="BtnCancelSettings">Cancel</sys:String>
 
     <!-- Additional quick actions -->
@@ -104,11 +106,17 @@
     <sys:String x:Key="SaveThumbnailTitle">Save Thumbnail</sys:String>
 
     <!-- Auto-detect -->
-    <sys:String x:Key="AutoDetectHint">Auto-detected</sys:String>
+    <sys:String x:Key="AutoDetectHint">Auto detected</sys:String>
     <sys:String x:Key="PlatformOther">Other platform</sys:String>
+    <sys:String x:Key="PlatformYTMusic">YouTube Music</sys:String>
+    <sys:String x:Key="YTMusicArtist">Artist</sys:String>
+    <sys:String x:Key="YTMusicAlbum">Album</sys:String>
+    <sys:String x:Key="QualityYTMusic320">MP3 320 kbps - Extreme Quality</sys:String>
+    <sys:String x:Key="QualityYTMusicM4a">M4A - Original AAC</sys:String>
+    <sys:String x:Key="QualityYTMusicFlac">FLAC - Lossless</sys:String>
 
     <!-- Dev Console -->
-    <sys:String x:Key="DevConsoleTitle">DEV CONSOLE</sys:String>
+    <sys:String x:Key="DevConsoleTitle">CONSOLE</sys:String>
     <sys:String x:Key="DevConsoleClear">Clear console</sys:String>
     <sys:String x:Key="DevConsoleDetach">Detach console</sys:String>
     <sys:String x:Key="DevConsoleReattach">Reattach console</sys:String>
@@ -141,13 +149,83 @@
     <sys:String x:Key="DesignerAdaptiveTheme">Adaptive Thumbnail Colors</sys:String>
     <sys:String x:Key="DesignerAdaptiveThemeTip">Change the color of the whole application to match the currently loaded video's thumbnail</sys:String>
     <sys:String x:Key="DesignerReset">Default</sys:String>
+    <sys:String x:Key="DesignerTabPresets">Presets</sys:String>
+    <sys:String x:Key="DesignerTabCustomPresets">Custom Presets</sys:String>
+    <sys:String x:Key="DesignerTabCustomize">Customize</sys:String>
+    <sys:String x:Key="DesignerTabWindowStyle">Window Style</sys:String>
+    <sys:String x:Key="DesignerCustomPresetsHeader">CUSTOM PRESETS</sys:String>
+    <sys:String x:Key="DesignerSelectColor">Select a color</sys:String>
+    <sys:String x:Key="DesignerHue">Hue</sys:String>
+    <sys:String x:Key="DesignerSaturation">Saturation</sys:String>
+    <sys:String x:Key="DesignerBrightness">Brightness</sys:String>
+    <sys:String x:Key="DesignerPaletteHeader">PALETTE COLORS</sys:String>
+    <sys:String x:Key="DesignerWindowStylingHeader">WINDOW STYLING</sys:String>
+    <sys:String x:Key="DesignerAdaptiveTintingTitle">Adaptive Accent Tinting</sys:String>
+    <sys:String x:Key="DesignerAdaptiveTintingDesc">Tints window accent based on loaded thumbnail dominant colors.</sys:String>
+    <sys:String x:Key="DesignerEnableBordersTitle">Container &amp; Tab Borders</sys:String>
+    <sys:String x:Key="DesignerEnableBordersDesc">Show outline borders around cards, tabs, and input containers.</sys:String>
+    <sys:String x:Key="DesignerGlassTransparencyTitle">Glass Transparency</sys:String>
+    <sys:String x:Key="DesignerGlassTransparencyDesc">Adjust transparency of application window backdrops.</sys:String>
+    <sys:String x:Key="DesignerInterfaceAnimationsTitle">Interface Animations</sys:String>
+    <sys:String x:Key="DesignerInterfaceAnimationsDesc">Adjust standard UI motion effects: standard, reduced, or disabled.</sys:String>
+    <sys:String x:Key="DesignerAnimStandard">Standard</sys:String>
+    <sys:String x:Key="DesignerAnimReduced">Reduced</sys:String>
+    <sys:String x:Key="DesignerAnimDisabled">Disabled</sys:String>
+    <sys:String x:Key="DesignerLiquidGlassTitle">Liquid Glass Windows</sys:String>
+    <sys:String x:Key="DesignerLiquidGlassDesc">Select which windows should use composition blur backdrops:</sys:String>
+    <sys:String x:Key="DesignerLivePreviewHeader">LIVE PREVIEW</sys:String>
+    <sys:String x:Key="DesignerSaveCustomThemeTitle">Save Custom Theme</sys:String>
+
+    <!-- Color Label Names -->
+    <sys:String x:Key="ColorLabelBgDeep">Window Background</sys:String>
+    <sys:String x:Key="ColorLabelBgSurface">Surface</sys:String>
+    <sys:String x:Key="ColorLabelBgCard">Card</sys:String>
+    <sys:String x:Key="ColorLabelBgElevated">Elevated / Input</sys:String>
+    <sys:String x:Key="ColorLabelBorderSub">Border</sys:String>
+    <sys:String x:Key="ColorLabelAccent">Primary Accent</sys:String>
+    <sys:String x:Key="ColorLabelAccentAlt">Secondary Accent</sys:String>
+    <sys:String x:Key="ColorLabelButtonGrad">Button Fill</sys:String>
+    <sys:String x:Key="ColorLabelTextPrimary">Primary Text</sys:String>
+    <sys:String x:Key="ColorLabelTextSec">Secondary Text</sys:String>
+    <sys:String x:Key="ColorLabelSuccessGreen">Success</sys:String>
+    <sys:String x:Key="ColorLabelErrorRed">Error</sys:String>
 
     <!-- Settings tabs -->
     <sys:String x:Key="SettingsTabGeneral">General</sys:String>
-    <sys:String x:Key="SettingsTabBackdrops">Liquid Glass</sys:String>
+    <sys:String x:Key="SettingsTabBackdrops">Window Resize</sys:String>
+    <sys:String x:Key="SettingsTabWindowSizes">Window Resize</sys:String>
+    <sys:String x:Key="SettingsWindowResizeHeader">WINDOW RESIZE &amp; SCALING</sys:String>
+    <sys:String x:Key="SettingsSelectTargetWindow">Select Target Window</sys:String>
+    <sys:String x:Key="SettingsSelectTargetWindowSub">Choose which application window to customize</sys:String>
+    <sys:String x:Key="SettingsLivePreviewCanvas">LIVE PREVIEW CANVAS</sys:String>
+    <sys:String x:Key="SettingsQuickPresets">Presets:</sys:String>
+    <sys:String x:Key="PresetCompact">Compact</sys:String>
+    <sys:String x:Key="PresetDefault">Default</sys:String>
+    <sys:String x:Key="PresetMedium">Medium</sys:String>
+    <sys:String x:Key="PresetLarge">Large</sys:String>
+    <sys:String x:Key="SettingsWidthPx">Width (px)</sys:String>
+    <sys:String x:Key="SettingsHeightPx">Height (px)</sys:String>
+    <sys:String x:Key="BtnResetWindowSizes">Reset All Window Sizes</sys:String>
+
+    <!-- Target Window Names -->
+    <sys:String x:Key="WindowTagMain">🖥️ Main Window</sys:String>
+    <sys:String x:Key="WindowTagEditor">🎬 Video Editor</sys:String>
+    <sys:String x:Key="WindowTagSettings">⚙️ Settings Menu</sys:String>
+    <sys:String x:Key="WindowTagDesigner">🎨 Theme Designer</sys:String>
+    <sys:String x:Key="WindowTagDesc">📝 Description Editor</sys:String>
+    <sys:String x:Key="WindowTagConsole">💻 Developer Console</sys:String>
+    <sys:String x:Key="WindowTagLog">📜 Log Viewer</sys:String>
     <sys:String x:Key="SettingsTabUpload">Upload</sys:String>
     <sys:String x:Key="SettingsTabDownload">Download</sys:String>
     <sys:String x:Key="SettingsTabAdvanced">Advanced</sys:String>
+    <sys:String x:Key="SettingsTabConsole">Console</sys:String>
+    <sys:String x:Key="SettingsConsoleFilters">CONSOLE LOGGING FILTERS</sys:String>
+    <sys:String x:Key="SettingsConsoleShowSystem">Show System &amp; UI Events</sys:String>
+    <sys:String x:Key="SettingsConsoleShowSystemDesc">Log general application events, UI adjustments, and lifecycle actions.</sys:String>
+    <sys:String x:Key="SettingsConsoleShowBackend">Show Backend &amp; API Logs</sys:String>
+    <sys:String x:Key="SettingsConsoleShowBackendDesc">Log backend connection status, server pings, and API transactions.</sys:String>
+    <sys:String x:Key="SettingsConsoleShowFFmpeg">Show FFmpeg &amp; yt-dlp Logs</sys:String>
+    <sys:String x:Key="SettingsConsoleShowFFmpegDesc">Log detailed encoding process steps and yt-dlp download outputs.</sys:String>
     <sys:String x:Key="SettingsAppearance">APPEARANCE</sys:String>
     <sys:String x:Key="SettingsBehavior">BEHAVIOR</sys:String>
     <sys:String x:Key="SettingsAlwaysOnTop">Always on top</sys:String>
@@ -211,6 +289,33 @@
     <sys:String x:Key="EditorSubStatusGenerating">Running speech recognition…</sys:String>
     <sys:String x:Key="EditorSubStatusDone">Subtitles generated ✓</sys:String>
     <sys:String x:Key="EditorSubStatusEmpty">No speech detected.</sys:String>
+
+    <!-- Additional Video Editor Strings -->
+    <sys:String x:Key="EditorVideoTransformHeader">VIDEO TRANSFORM</sys:String>
+    <sys:String x:Key="EditorCropSection">CROP &amp; ASPECT RATIO</sys:String>
+    <sys:String x:Key="EditorCropOriginal">Original</sys:String>
+    <sys:String x:Key="EditorAudioRetimingHeader">AUDIO &amp; RETIMING</sys:String>
+    <sys:String x:Key="EditorSpeedAudioSection">SPEED &amp; AUDIO</sys:String>
+    <sys:String x:Key="EditorPlaybackSpeed">Playback Speed</sys:String>
+    <sys:String x:Key="EditorVolumeBoost">Volume Boost / Amplification</sys:String>
+    <sys:String x:Key="EditorCaptionsHeader">CAPTIONS GENERATOR</sys:String>
+    <sys:String x:Key="EditorExportMediaHeader">EXPORT MEDIA</sys:String>
+    <sys:String x:Key="EditorResolution">Resolution</sys:String>
+    <sys:String x:Key="EditorFormat">Format</sys:String>
+    <sys:String x:Key="EditorResOriginal">Auto (Original)</sys:String>
+    <sys:String x:Key="EditorRes1080p">1080p (Full HD)</sys:String>
+    <sys:String x:Key="EditorRes720p">720p (HD)</sys:String>
+    <sys:String x:Key="EditorRes480p">480p (SD)</sys:String>
+    <sys:String x:Key="EditorFormatMp4">MP4 Video</sys:String>
+    <sys:String x:Key="EditorFormatMkv">MKV Video</sys:String>
+    <sys:String x:Key="EditorFormatWebm">WebM Video</sys:String>
+    <sys:String x:Key="EditorTimelineHeader">TIMELINE EDITOR</sys:String>
+    <sys:String x:Key="EditorStartLabel">Start:</sys:String>
+    <sys:String x:Key="EditorEndLabel">End:</sys:String>
+
+    <!-- Description Editor Window -->
+    <sys:String x:Key="DescEditorTitle">Edit Description</sys:String>
+    <sys:String x:Key="BtnApply">Apply</sys:String>
     <sys:String x:Key="DragDropOverlayText">Drop link here to load metadata</sys:String>
 
     <!-- Error Status Popup -->
@@ -229,6 +334,7 @@
     <sys:String x:Key="CmdPythonDesc">Check local Python path and version</sys:String>
     <sys:String x:Key="CmdFfmpegDesc">Check local FFmpeg path and version</sys:String>
     <sys:String x:Key="CmdOpenDesc">Open directories (downloads or appdata)</sys:String>
+    <sys:String x:Key="ErrEditorDisabled">The video editor is currently disabled.</sys:String>
 
 </ResourceDictionary>
 

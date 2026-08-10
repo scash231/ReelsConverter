@@ -24,6 +24,93 @@ _UA = (
     "Chrome/130.0.0.0 Safari/537.36"
 )
 
+# Cookie sources to auto-probe, in order of reliability. Chrome (and other
+# Chromium browsers on recent versions) uses "app-bound" cookie encryption
+# on Windows that yt-dlp cannot decrypt (yt-dlp issue #7271) - the DB copy
+# itself succeeds but decryption fails, so Chrome is tried last among
+# browsers. Firefox/Edge don't have this problem. A cookies.txt file (if
+# YTDLP_COOKIES_FILE is set) is tried first since it's the most reliable.
+_COOKIE_BROWSERS = ["firefox", "edge", "chrome", "brave", "opera"]
+_COOKIE_FILE_ENV = "YTDLP_COOKIES_FILE"
+
+# Cache of the cookie opts that were found to actually work, so we only
+# probe once per process instead of on every metadata/download call.
+_working_cookie_opts: dict | None = None
+_cookie_probe_done = False
+
+
+class _SilentLogger:
+    def debug(self, msg): pass
+    def info(self, msg): pass
+    def warning(self, msg): pass
+    def error(self, msg): pass
+
+_silent_logger = _SilentLogger()
+
+
+def _cookie_candidates() -> list[dict]:
+    """Ordered list of cookie opts to try. Always ends with {} (no cookies)."""
+    candidates: list[dict] = []
+    cookie_file = os.environ.get(_COOKIE_FILE_ENV)
+    if cookie_file and os.path.isfile(cookie_file):
+        candidates.append({"cookiefile": cookie_file})
+    if os.environ.get("YTDLP_NO_COOKIES") != "1":
+        forced = os.environ.get("YTDLP_COOKIES_BROWSER")
+        browsers = [forced] if forced else _COOKIE_BROWSERS
+        for browser in browsers:
+            candidates.append({"cookiesfrombrowser": (browser, None, None, None)})
+    candidates.append({})
+    return candidates
+
+
+def _describe_cookie_opts(opts: dict) -> str:
+    if "cookiefile" in opts:
+        return f"cookie file {opts['cookiefile']}"
+    if "cookiesfrombrowser" in opts:
+        return f"{opts['cookiesfrombrowser'][0]} browser cookies"
+    return "no cookies"
+
+
+def _probe_cookie_opts(url: str) -> dict:
+    """Try each cookie candidate against a lightweight metadata fetch and
+    return the opts of the first one that actually works. Result is cached
+    for the rest of the process."""
+    global _working_cookie_opts, _cookie_probe_done
+    if _cookie_probe_done:
+        return _working_cookie_opts
+
+    for opts in _cookie_candidates():
+        probe_opts = {
+            **opts,
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+            "simulate": True,
+            "logger": _silent_logger,
+            "http_headers": {"User-Agent": _UA},
+            "socket_timeout": 15,
+            "extractor_retries": 1,
+        }
+        try:
+            with yt_dlp.YoutubeDL(probe_opts) as ydl:
+                ydl.extract_info(url, download=False)
+            print(f"[downloader] cookies: using {_describe_cookie_opts(opts)}", flush=True)
+            _working_cookie_opts = opts
+            _cookie_probe_done = True
+            return opts
+        except Exception as exc:
+            print(f"[downloader] cookies: {_describe_cookie_opts(opts)} failed "
+                  f"({type(exc).__name__}), trying next…", flush=True)
+            continue
+
+    # Nothing worked at all - fall back to no cookies, don't cache so we
+    # retry the probe on the next call in case something changes.
+    return {}
+
+
+def _cookie_opts_for(url: str) -> dict:
+    return _probe_cookie_opts(url)
+
 # Invisible / zero-width Unicode codepoints that browsers and social-media
 # apps love to inject when the user copies a URL.
 _INVISIBLE_RE = re.compile(
@@ -66,6 +153,7 @@ def fetch_metadata(url: str) -> dict:
         "http_headers": {"User-Agent": _UA},
         "socket_timeout": 15,
         "extractor_retries": 3,
+        **_cookie_opts_for(url),
     }
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
@@ -121,7 +209,7 @@ def download_video(url: str, output_dir: str, progress_hook,
             raise
 
     def _build_opts(*, use_aria: bool = True, fast_fragments: bool = True,
-                    safe_format: bool = False) -> dict:
+                    safe_format: bool = False, cookie_opts: dict | None = None) -> dict:
         if is_audio:
             fmt = "bestaudio[ext=m4a]/bestaudio/best"
         elif safe_format:
@@ -169,17 +257,25 @@ def download_video(url: str, output_dir: str, progress_hook,
                     "--max-concurrent-downloads=16",
                 ]
             }
+        if cookie_opts:
+            o.update(cookie_opts)
         return o
+
+    # Probe once for a working cookie source (Firefox/Edge/Chrome/file/none),
+    # then reuse it across all retry attempts below.
+    good_cookie_opts = _cookie_opts_for(url)
 
     # Try with full speed opts first; on failure fall back to safe mode.
     info = None
     last_exc = None
-    for attempt, (aria, frag, safe) in enumerate([
-        (True, True, False),
-        (False, False, True),
+    for attempt, (aria, frag, safe, use_cookies) in enumerate([
+        (True, True, False, True),
+        (False, False, True, True),
+        (False, False, True, False),
     ]):
         _was_cancelled[0] = False
-        opts = _build_opts(use_aria=aria, fast_fragments=frag, safe_format=safe)
+        opts = _build_opts(use_aria=aria, fast_fragments=frag, safe_format=safe,
+                           cookie_opts=good_cookie_opts if use_cookies else None)
         try:
             with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(url, download=True)
@@ -190,10 +286,10 @@ def download_video(url: str, output_dir: str, progress_hook,
             if _was_cancelled[0] or (cancel_check and cancel_check()):
                 return None
             last_exc = exc
-            if attempt == 0:
+            if attempt < 2:
                 import traceback as _tb
-                print(f"[downloader] attempt 1 failed ({type(exc).__name__}), retrying safe mode…",
-                      flush=True)
+                print(f"[downloader] attempt {attempt + 1} failed ({type(exc).__name__}), "
+                      f"retrying…", flush=True)
                 print(_tb.format_exc(), flush=True)
                 # Clean up partial files before retry
                 for f in os.listdir(output_dir):
@@ -202,7 +298,7 @@ def download_video(url: str, output_dir: str, progress_hook,
                             os.remove(os.path.join(output_dir, f))
                         except OSError:
                             pass
-                continue  # retry with safe opts
+                continue  # retry with next opts
             raise
 
     downloaded = None

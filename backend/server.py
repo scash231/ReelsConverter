@@ -17,6 +17,7 @@ _DEPS = {
     "fastapi": "fastapi",
     "uvicorn": "uvicorn[standard]",
     "yt_dlp":  "yt-dlp",
+    "mutagen": "mutagen",
 }
 for _mod, _pkg in _DEPS.items():
     try:
@@ -36,6 +37,7 @@ import uvicorn
 
 from ffmpeg_manager import ensure_ffmpeg
 from downloader    import download_video, fetch_metadata
+from ytmusic_downloader import download_ytmusic_audio, fetch_ytmusic_metadata, is_ytmusic_url
 from transformer   import transform_video
 from uploader      import upload_to_youtube
 from subtitler     import generate_subtitles
@@ -113,7 +115,16 @@ async def health():
 @app.post("/api/metadata")
 async def api_metadata(req: MetadataReq):
     try:
+        if is_ytmusic_url(req.url):
+            return await asyncio.to_thread(fetch_ytmusic_metadata, req.url)
         return await asyncio.to_thread(fetch_metadata, req.url)
+    except Exception as exc:
+        raise HTTPException(400, str(exc))
+
+@app.post("/api/ytmusic/metadata")
+async def api_ytmusic_metadata(req: MetadataReq):
+    try:
+        return await asyncio.to_thread(fetch_ytmusic_metadata, req.url)
     except Exception as exc:
         raise HTTPException(400, str(exc))
 
@@ -191,7 +202,32 @@ def _run_job_sync(jid: str, req: JobReq):
 
     try:
         _jobs[jid]["status"] = "running"
-        up("Lade Video herunter...", 5)
+        is_upload = req.mode == "upload"
+        is_ytmusic = (
+            is_ytmusic_url(req.url) or 
+            req.platform.lower() == "ytmusic" or 
+            (req.quality or "").startswith("ytmusic")
+        )
+        is_audio_mode = (req.quality == "audio") or is_ytmusic
+        has_fp = bool(req.fingerprint) and not is_audio_mode
+
+        # Count total active phases for clear step-by-step progress messaging
+        total_phases = 1
+        if is_upload:
+            total_phases += 1
+        if has_fp:
+            total_phases += 1
+
+        current_phase = 1
+        phase_prefix = f"[{current_phase}/{total_phases}] " if total_phases > 1 else ""
+
+        if is_ytmusic:
+            initial_msg = "Lade Musik herunter..."
+        elif is_audio_mode:
+            initial_msg = "Lade Audio herunter..."
+        else:
+            initial_msg = "Lade Video herunter..."
+        up(f"{phase_prefix}{initial_msg}", 0)
 
         dl_dir = (req.output_dir.strip()
                   if req.mode == "download" and req.output_dir and req.output_dir.strip()
@@ -199,39 +235,81 @@ def _run_job_sync(jid: str, req: JobReq):
         dl_dir = os.path.abspath(os.path.normpath(dl_dir))
         print(f"[job {jid[:8]}] url={req.url!r}  dl_dir={dl_dir!r}  python={sys.version.split()[0]}", flush=True)
 
-        is_upload = req.mode == "upload"
-        dl_end = 50 if is_upload else 90
-        dl_range = dl_end - 5
+        current_download_index = [1]
+        last_filename = [None]
 
         def _hook(d: dict):
+            fn = d.get("filename") or d.get("tmpfilename")
+            if fn and last_filename[0] and fn != last_filename[0]:
+                current_download_index[0] += 1
+            if fn:
+                last_filename[0] = fn
+
             if d["status"] == "downloading":
                 dl  = d.get("downloaded_bytes", 0)
                 tot = d.get("total_bytes") or d.get("total_bytes_estimate") or 1
-                pct = int(dl / tot * dl_range) + 5
+                pct = min(100, int(dl / tot * 100))
                 eta = d.get("eta")
+                speed = d.get("speed")
+
+                speed_str = None
+                if speed and speed > 0:
+                    speed_mb = speed / 1_048_576.0
+                    if speed_mb >= 1.0:
+                        speed_str = f"{speed_mb:.1f} MB/s"
+                    else:
+                        speed_kb = speed / 1024.0
+                        speed_str = f"{speed_kb:.0f} KB/s"
+
+                idx = current_download_index[0]
+                if is_ytmusic:
+                    sub_phase = "Download Music"
+                elif is_audio_mode:
+                    sub_phase = "Download Audio"
+                elif idx == 1:
+                    sub_phase = "Download Video"
+                elif idx == 2:
+                    sub_phase = "Download Audio"
+                else:
+                    sub_phase = "Merging"
+
                 _jobs[jid]["eta"] = eta
-                up(f"Download: {dl / 1_048_576:.1f} / {tot / 1_048_576:.1f} MB", pct)
+                _jobs[jid]["speed"] = speed_str
+                up(f"{phase_prefix}{sub_phase}: {dl / 1_048_576:.1f} / {tot / 1_048_576:.1f} MB", pct)
             elif d["status"] == "finished":
                 _jobs[jid]["eta"] = None
-                up("Download fertig, verarbeite...", dl_end)
+                _jobs[jid]["speed"] = None
+                if not is_audio_mode and current_download_index[0] >= 2:
+                    up(f"{phase_prefix}Merging", 100)
 
-        path = download_video(req.url, dl_dir, _hook, _cancelled,
-                             quality=req.quality or "best")
+        is_ytmusic = (
+            is_ytmusic_url(req.url) or 
+            req.platform.lower() == "ytmusic" or 
+            (req.quality or "").startswith("ytmusic")
+        )
+
+        if is_ytmusic:
+            path = download_ytmusic_audio(
+                req.url, dl_dir, _hook, _cancelled,
+                quality=req.quality or "ytmusic_320k"
+            )
+        else:
+            path = download_video(req.url, dl_dir, _hook, _cancelled,
+                                 quality=req.quality or "best")
         if _cancelled():
             raise RuntimeError("Abgebrochen")
         if not path:
-            raise RuntimeError("Keine MP4-Datei nach Download gefunden.")
+            raise RuntimeError("Keine Datei nach Download gefunden.")
 
-        # -- Fingerprint bypass ------------------------------------------------
-        if req.fingerprint:
-            fp_start = 50 if is_upload else 90
-            fp_end   = 70 if is_upload else 99
-            fp_range = fp_end - fp_start
-            up("Fingerprint-Bypass wird angewendet...", fp_start)
+        # -- Fingerprint bypass (Video only) -----------------------------------
+        if req.fingerprint and not is_audio_mode:
+            current_phase += 1
+            phase_prefix = f"[{current_phase}/{total_phases}] "
+            up(f"{phase_prefix}Fingerprint-Bypass wird angewendet...", 0)
 
             def _fp_progress(frac: float):
-                pct = fp_start + int(frac * fp_range)
-                up(f"Fingerprint-Bypass: {int(frac * 100)}%", pct)
+                pct = min(100, int(frac * 100))
+                up(f"{phase_prefix}Fingerprint-Bypass: {pct}%", pct)
 
             path = transform_video(
                 path,
@@ -242,14 +320,17 @@ def _run_job_sync(jid: str, req: JobReq):
             )
             if _cancelled():
                 raise RuntimeError("Abgebrochen")
-            up("Transformation abgeschlossen.", fp_end)
+            up(f"{phase_prefix}Fingerprint-Bypass abgeschlossen.", 100)
 
         # -- YouTube upload ----------------------------------------------------
         if is_upload:
-            up("YouTube-Upload laeuft...", 70)
+            current_phase += 1
+            phase_prefix = f"[{current_phase}/{total_phases}] "
+            up(f"{phase_prefix}YouTube-Upload laeuft...", 0)
 
             def _up_cb(p: int):
-                up(f"YouTube Upload: {p}%", 70 + int(p * 29 / 100))
+                pct = min(100, int(p))
+                up(f"{phase_prefix}YouTube Upload: {pct}%", pct)
 
             vid = upload_to_youtube(
                 path,

@@ -67,24 +67,57 @@ public static class DropdownAnimBehavior
         double originY = Math.Clamp(selectedCenter / totalH, 0.05, 0.95);
 
         border.RenderTransformOrigin = new Point(0.5, originY);
-        var st = new ScaleTransform(0.92, 0.92);
-        border.RenderTransform = st;
-        border.Opacity = 0;
+        var theme = Services.ThemeService.Current ?? new Models.ThemeSettings();
+        string preset = theme.AnimationPreset ?? theme.AnimationLevel ?? "Balanced";
+        if (preset == "Disabled (Static)")
+        {
+            border.Opacity = 1;
+            return;
+        }
 
+        string style = theme.DropdownAnimStyle ?? "Scale & Fade";
         var spring = AppleSpringEase.Interactive;
         var smooth = AppleSpringEase.Gentle;
-        var springDur = TimeSpan.FromMilliseconds(450);
-        var fadeDur = TimeSpan.FromMilliseconds(200);
+        var springDur = TimeSpan.FromMilliseconds(400);
+        var fadeDur = TimeSpan.FromMilliseconds(180);
 
-        border.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(0, 1, fadeDur) { EasingFunction = smooth });
-        st.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(0.92, 1, springDur) { EasingFunction = spring });
-        st.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(0.92, 1, springDur) { EasingFunction = spring });
+        border.Opacity = 0;
 
-        // Stagger items outward from the selected item
-        StaggerDropdownItems(combo, selIdx);
+        if (style == "Fade Only")
+        {
+            border.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, fadeDur) { EasingFunction = smooth });
+        }
+        else if (style == "Pop Out")
+        {
+            border.RenderTransformOrigin = new Point(0.5, originY);
+            var st = new ScaleTransform(0.7, 0.7);
+            border.RenderTransform = st;
+            border.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, fadeDur) { EasingFunction = smooth });
+            st.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.7, 1, springDur) { EasingFunction = AppleSpringEase.Bouncy });
+            st.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.7, 1, springDur) { EasingFunction = AppleSpringEase.Bouncy });
+        }
+        else if (style == "Accordion Slide")
+        {
+            border.RenderTransformOrigin = new Point(0.5, 0);
+            var st = new ScaleTransform(1.0, 0.0);
+            border.RenderTransform = st;
+            border.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, fadeDur) { EasingFunction = smooth });
+            st.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.0, 1.0, springDur) { EasingFunction = smooth });
+        }
+        else // Scale & Fade
+        {
+            border.RenderTransformOrigin = new Point(0.5, originY);
+            var st = new ScaleTransform(0.92, 0.92);
+            border.RenderTransform = st;
+            border.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, fadeDur) { EasingFunction = smooth });
+            st.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.92, 1, springDur) { EasingFunction = spring });
+            st.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.92, 1, springDur) { EasingFunction = spring });
+        }
+
+        if (theme.EnableStaggeredAnimations)
+        {
+            StaggerDropdownItems(combo, selIdx);
+        }
     }
 
     private static void OnDropDownClosed(object? sender, EventArgs e)

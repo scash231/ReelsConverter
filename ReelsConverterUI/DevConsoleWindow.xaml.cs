@@ -24,15 +24,32 @@ public partial class DevConsoleWindow : Window
         InitializeComponent();
         _originRect = originRect;
         TxtConsole.Text = existingLog;
+        SourceInitialized += OnSourceInitialized;
         Loaded += OnLoaded;
     }
 
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        // Background blur is disabled for detached console window
+    }
+
+    private void WindowCornerGrip_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed)
+            Services.SettingsService.StartWindowResizeBottomRight(this);
+    }
+
+    private void WindowCornerGrip_MouseEnter(object sender, MouseEventArgs e)
+        => Services.SettingsService.HandleGripHover(sender, true);
+
+    private void WindowCornerGrip_MouseLeave(object sender, MouseEventArgs e)
+        => Services.SettingsService.HandleGripHover(sender, false);
+
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (Services.SettingsService.Current.BlurDevConsole)
-        {
-            Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
-        }
+        Services.SettingsService.SettingsChanged += (_, _) => Services.SettingsService.ApplyResizeGripVisibility(this);
+        Services.SettingsService.ApplyResizeGripVisibility(this);
+        Services.SettingsService.ApplyWindowSize(this);
         FluidMotion.MorphOpen(RootBorder, WinScale, WinTranslate, _originRect, this);
         TxtConsole.ScrollToEnd();
         TxtInput.Focus();

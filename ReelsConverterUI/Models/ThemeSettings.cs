@@ -44,8 +44,68 @@ public sealed class ThemeSettings
     public bool AdaptiveThumbnailTheme { get; set; } = false;
 
     [JsonPropertyName("animation_level")]
-    public string AnimationLevel { get; set; } = "Standard";
+    public string AnimationLevel { get; set; } = "Smooth Liquid";
 
     [JsonPropertyName("preset_name")]
     public string PresetName { get; set; } = "Custom Theme";
+
+    [JsonPropertyName("enable_borders")]
+    public bool EnableBorders { get; set; } = true;
+
+    [JsonPropertyName("gradient_effect_mode")]
+    public string GradientEffectMode { get; set; } = "thumbnail_only";
+
+    [JsonPropertyName("bg_gradient_strength")]
+    public double BgGradientStrength { get; set; } = 1.0;
+
+    [JsonPropertyName("enable_bg_gradient")]
+    public bool EnableBgGradient { get; set; } = true;
+
+    [JsonPropertyName("enable_thumbnail_gradient")]
+    public bool EnableThumbnailGradient { get; set; } = true;
+
+    [JsonPropertyName("thumbnail_gradient_only")]
+    public bool ThumbnailGradientOnly { get; set; } = false;
+
+    [JsonPropertyName("disable_thumbnail_card")]
+    public bool DisableThumbnailCard { get; set; } = false;
+
+    [JsonPropertyName("animation_preset")]
+    public string AnimationPreset { get; set; } = "Smooth Liquid";
+
+    [JsonPropertyName("window_anim_duration")]
+    public int WindowAnimDuration { get; set; } = 380;
+
+    [JsonPropertyName("window_anim_easing")]
+    public string WindowAnimEasing { get; set; } = "Apple Spring (Bouncy)";
+
+    [JsonPropertyName("window_anim_style")]
+    public string WindowAnimStyle { get; set; } = "Morph & Scale";
+
+    [JsonPropertyName("button_hover_scale")]
+    public double ButtonHoverScale { get; set; } = 1.03;
+
+    [JsonPropertyName("enable_hover_micro_anims")]
+    public bool EnableHoverMicroAnims { get; set; } = true;
+
+    [JsonPropertyName("progress_bar_anim_speed")]
+    public int ProgressBarAnimSpeed { get; set; } = 350;
+
+    [JsonPropertyName("enable_progress_pulse")]
+    public bool EnableProgressPulse { get; set; } = true;
+
+    [JsonPropertyName("dropdown_anim_style")]
+    public string DropdownAnimStyle { get; set; } = "Scale & Fade";
+
+    [JsonPropertyName("tab_switch_transition")]
+    public string TabSwitchTransition { get; set; } = "Slide & Fade";
+
+    [JsonPropertyName("enable_staggered_animations")]
+    public bool EnableStaggeredAnimations { get; set; } = true;
+
+    public ThemeSettings Clone()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(this);
+        return System.Text.Json.JsonSerializer.Deserialize<ThemeSettings>(json) ?? new ThemeSettings();
+    }
 }

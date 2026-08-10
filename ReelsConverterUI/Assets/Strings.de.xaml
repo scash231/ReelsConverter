@@ -106,6 +106,12 @@
     <!-- Auto-detect -->
     <sys:String x:Key="AutoDetectHint">Automatisch erkannt</sys:String>
     <sys:String x:Key="PlatformOther">Andere Plattform</sys:String>
+    <sys:String x:Key="PlatformYTMusic">YouTube Music</sys:String>
+    <sys:String x:Key="YTMusicArtist">Künstler</sys:String>
+    <sys:String x:Key="YTMusicAlbum">Album</sys:String>
+    <sys:String x:Key="QualityYTMusic320">MP3 320 kbps - Höchste Qualität</sys:String>
+    <sys:String x:Key="QualityYTMusicM4a">M4A - Original AAC</sys:String>
+    <sys:String x:Key="QualityYTMusicFlac">FLAC - Verlustfrei</sys:String>
 
     <!-- Dev Console -->
     <sys:String x:Key="DevConsoleTitle">DEV CONSOLE</sys:String>
@@ -148,6 +154,14 @@
     <sys:String x:Key="SettingsTabUpload">Upload</sys:String>
     <sys:String x:Key="SettingsTabDownload">Download</sys:String>
     <sys:String x:Key="SettingsTabAdvanced">Erweitert</sys:String>
+    <sys:String x:Key="SettingsTabConsole">Konsole</sys:String>
+    <sys:String x:Key="SettingsConsoleFilters">KONSOLEN-LOGGING-FILTER</sys:String>
+    <sys:String x:Key="SettingsConsoleShowSystem">System- &amp; UI-Events anzeigen</sys:String>
+    <sys:String x:Key="SettingsConsoleShowSystemDesc">Allgemeine Anwendungsereignisse, UI-Anpassungen und Lebenszyklusaktionen protokollieren.</sys:String>
+    <sys:String x:Key="SettingsConsoleShowBackend">Backend- &amp; API-Logs anzeigen</sys:String>
+    <sys:String x:Key="SettingsConsoleShowBackendDesc">Backend-Verbindungsstatus, Server-Pings und API-Transaktionen protokollieren.</sys:String>
+    <sys:String x:Key="SettingsConsoleShowFFmpeg">FFmpeg- &amp; yt-dlp-Logs anzeigen</sys:String>
+    <sys:String x:Key="SettingsConsoleShowFFmpegDesc">Detaillierte Schritte des Kodierungsprozesses und yt-dlp-Download-Ausgaben protokollieren.</sys:String>
     <sys:String x:Key="SettingsAppearance">DARSTELLUNG</sys:String>
     <sys:String x:Key="SettingsBehavior">VERHALTEN</sys:String>
     <sys:String x:Key="SettingsAlwaysOnTop">Immer im Vordergrund</sys:String>

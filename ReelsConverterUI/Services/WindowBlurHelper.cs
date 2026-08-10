@@ -44,6 +44,24 @@ public static class WindowBlurHelper
         ACCENT_INVALID_STATE = 5
     }
 
+    [DllImport("gdi32.dll")]
+    private static extern IntPtr CreateRoundRectRgn(int nLeftRect, int nTopRect, int nRightRect, int nBottomRect, int nWidthEllipse, int nHeightEllipse);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool bRedraw);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
@@ -78,10 +96,66 @@ public static class WindowBlurHelper
             SetWindowCompositionAttribute(hwnd, ref data);
 
             Marshal.FreeHGlobal(accentPtr);
+
+            // Clip window region to match XAML rounded rect CornerRadius
+            ApplyRoundedRegion(window);
+
+            window.SizeChanged -= Window_SizeChangedForRegion;
+            window.SizeChanged += Window_SizeChangedForRegion;
         }
         catch
         {
             // Fallback if OS doesn't support it
+        }
+    }
+
+    private static void Window_SizeChangedForRegion(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is Window win)
+        {
+            ApplyRoundedRegion(win);
+        }
+    }
+
+    public static void ApplyRoundedRegion(Window window)
+    {
+        try
+        {
+            var windowHelper = new WindowInteropHelper(window);
+            var hwnd = windowHelper.Handle;
+            if (hwnd == IntPtr.Zero) return;
+
+            if (!GetWindowRect(hwnd, out RECT rect)) return;
+            int width = rect.Right - rect.Left;
+            int height = rect.Bottom - rect.Top;
+            if (width <= 0 || height <= 0) return;
+
+            double radius = 16;
+            if (window.Content is FrameworkElement root)
+            {
+                var border = root as System.Windows.Controls.Border ?? LogicalTreeHelper.FindLogicalNode(root, "RootBorder") as System.Windows.Controls.Border;
+                if (border != null)
+                {
+                    radius = border.CornerRadius.TopLeft;
+                }
+            }
+
+            var source = PresentationSource.FromVisual(window);
+            double scaleX = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+            double scaleY = source?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
+
+            int cornerEllipseX = (int)Math.Round(radius * 2 * scaleX);
+            int cornerEllipseY = (int)Math.Round(radius * 2 * scaleY);
+
+            IntPtr hRgn = CreateRoundRectRgn(0, 0, width + 1, height + 1, cornerEllipseX, cornerEllipseY);
+            if (hRgn != IntPtr.Zero)
+            {
+                SetWindowRgn(hwnd, hRgn, true);
+            }
+        }
+        catch
+        {
+            // Ignore
         }
     }
 

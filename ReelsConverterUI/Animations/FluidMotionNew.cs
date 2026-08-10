@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using ReelsConverterUI.Models;
 
 namespace ReelsConverterUI.Animations;
 
@@ -95,16 +96,41 @@ public static class FluidMotion
         if (double.IsNaN(top)) top = 0;
     }
 
+    private static ThemeSettings GetThemeSettings()
+    {
+        try
+        {
+            return Services.ThemeService.Current ?? new ThemeSettings();
+        }
+        catch
+        {
+            return new ThemeSettings();
+        }
+    }
+
     private static string GetAnimationLevel()
     {
         try
         {
-            return Services.ThemeService.Current?.AnimationLevel ?? "Standard";
+            var theme = GetThemeSettings();
+            return theme.AnimationPreset ?? theme.AnimationLevel ?? "Balanced";
         }
         catch
         {
-            return "Standard";
+            return "Balanced";
         }
+    }
+
+    private static IEasingFunction? GetEasing(string? easingName)
+    {
+        return easingName switch
+        {
+            "Apple Spring (Bouncy)" => AppleSpringEase.Bouncy,
+            "Elastic Snap"          => AppleSpringEase.Snappy,
+            "Cubic Smooth"          => AppleSpringEase.Smooth,
+            "Linear Constant"       => null,
+            _                       => AppleSpringEase.Interactive
+        };
     }
 
     public static void MorphOpen(
@@ -115,8 +141,9 @@ public static class FluidMotion
         Window window,
         Action? onCompleted = null)
     {
-        string mode = GetAnimationLevel();
-        if (mode == "None")
+        var theme = GetThemeSettings();
+        string preset = theme.AnimationPreset ?? theme.AnimationLevel ?? "Balanced";
+        if (preset == "Disabled (Static)" || preset == "Disabled" || preset == "None")
         {
             root.Opacity = 1;
             scale.ScaleX = 1;
@@ -126,19 +153,65 @@ public static class FluidMotion
             onCompleted?.Invoke();
             return;
         }
-        if (mode == "Reduced")
+
+        double speedMult = preset switch
         {
-            root.Opacity = 0;
+            "Subtle" => 0.7,
+            "Smooth Liquid" => 1.35,
+            "Hyper Fluid" => 1.65,
+            _ => 1.0
+        };
+
+        int baseDurMs = theme.WindowAnimDuration > 0 ? theme.WindowAnimDuration : 280;
+        var springDur = TimeSpan.FromMilliseconds(baseDurMs * speedMult);
+        var fadeDur = TimeSpan.FromMilliseconds((baseDurMs * 0.6) * speedMult);
+        var easing = GetEasing(theme.WindowAnimEasing);
+        var smooth = AppleSpringEase.Smooth;
+
+        string style = theme.WindowAnimStyle ?? "Morph & Scale";
+
+        if (style == "Fade Only")
+        {
             scale.ScaleX = 1;
             scale.ScaleY = 1;
             translate.X = 0;
             translate.Y = 0;
-            var fade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150)) { EasingFunction = AppleSpringEase.Smooth };
+            var fade = new DoubleAnimation(0, 1, fadeDur) { EasingFunction = smooth };
             if (onCompleted != null) fade.Completed += (s, e) => onCompleted();
             root.BeginAnimation(UIElement.OpacityProperty, fade);
             return;
         }
 
+        if (style == "Slide Up & Fade")
+        {
+            root.RenderTransformOrigin = new Point(0.5, 0.5);
+            scale.ScaleX = 1;
+            scale.ScaleY = 1;
+            translate.X = 0;
+            translate.Y = 35;
+            root.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, fadeDur) { EasingFunction = smooth });
+            var yAnim = new DoubleAnimation(35, 0, springDur) { EasingFunction = easing };
+            if (onCompleted != null) yAnim.Completed += (s, e) => onCompleted();
+            translate.BeginAnimation(TranslateTransform.YProperty, yAnim);
+            return;
+        }
+
+        if (style == "Zoom Elastic")
+        {
+            root.RenderTransformOrigin = new Point(0.5, 0.5);
+            scale.ScaleX = 0.6;
+            scale.ScaleY = 0.6;
+            translate.X = 0;
+            translate.Y = 0;
+            root.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, fadeDur) { EasingFunction = smooth });
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.6, 1.0, springDur) { EasingFunction = AppleSpringEase.Bouncy });
+            var yAnim = new DoubleAnimation(0.6, 1.0, springDur) { EasingFunction = AppleSpringEase.Bouncy };
+            if (onCompleted != null) yAnim.Completed += (s, e) => onCompleted();
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, yAnim);
+            return;
+        }
+
+        // Default: Morph & Scale
         var winW = window.ActualWidth;
         if (double.IsNaN(winW) || winW <= 0) winW = window.Width;
         if (double.IsNaN(winW) || winW <= 0) winW = 800;
@@ -153,43 +226,27 @@ public static class FluidMotion
         var btnCx = origin.X + origin.Width / 2;
         var btnCy = origin.Y + origin.Height / 2;
 
-        // Dynamic pivot: button center relative to window (0-1)
         double ox = Math.Clamp((btnCx - left) / winW, 0.0, 1.0);
         double oy = Math.Clamp((btnCy - top) / winH, 0.0, 1.0);
         root.RenderTransformOrigin = new Point(ox, oy);
 
-        // Starting scale = actual button/window ratio
         double sx = Math.Clamp(origin.Width / winW, 0.03, 0.45);
         double sy = Math.Clamp(origin.Height / winH, 0.03, 0.45);
 
-        // Translate corrects offset when button is outside window bounds
         double tx = btnCx - left - ox * winW;
         double ty = btnCy - top - oy * winH;
 
-        var spring = AppleSpringEase.Interactive;
-        var smooth = AppleSpringEase.Smooth;
-        var springDur = TimeSpan.FromMilliseconds(500);
-        var fadeDur = TimeSpan.FromMilliseconds(200);
+        root.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, fadeDur) { EasingFunction = smooth });
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(sx, 1, springDur) { EasingFunction = easing });
 
-        root.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(0, 1, fadeDur) { EasingFunction = smooth });
+        var yMorphAnim = new DoubleAnimation(sy, 1, springDur) { EasingFunction = easing };
+        if (onCompleted != null) yMorphAnim.Completed += (s, e) => onCompleted();
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, yMorphAnim);
 
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(sx, 1, springDur) { EasingFunction = spring });
-
-        var yAnim = new DoubleAnimation(sy, 1, springDur) { EasingFunction = spring };
-        if (onCompleted != null)
-        {
-            yAnim.Completed += (s, e) => onCompleted();
-        }
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty, yAnim);
-
-        translate.BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation(tx, 0, springDur) { EasingFunction = smooth });
-        translate.BeginAnimation(TranslateTransform.YProperty,
-            new DoubleAnimation(ty, 0, springDur) { EasingFunction = smooth });
+        translate.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(tx, 0, springDur) { EasingFunction = smooth });
+        translate.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(ty, 0, springDur) { EasingFunction = smooth });
     }
-    // Window morph close (shrink back toward button, fast fade)
+
     public static void MorphClose(
         Border root,
         ScaleTransform scale,
@@ -198,63 +255,27 @@ public static class FluidMotion
         Window window,
         Action onCompleted)
     {
-        string mode = GetAnimationLevel();
-        if (mode == "None")
+        var theme = GetThemeSettings();
+        string preset = theme.AnimationPreset ?? theme.AnimationLevel ?? "Balanced";
+        if (preset == "Disabled (Static)" || preset == "Disabled" || preset == "None")
         {
             try { Services.WindowBlurHelper.DisableBlur(window); } catch { }
             onCompleted();
             return;
         }
-        if (mode == "Reduced")
-        {
-            try { Services.WindowBlurHelper.DisableBlur(window); } catch { }
-            var fade = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(150)) { EasingFunction = AppleSpringEase.Smooth };
-            fade.Completed += (s, e) => onCompleted();
-            root.BeginAnimation(UIElement.OpacityProperty, fade);
-            return;
-        }
 
         try { Services.WindowBlurHelper.DisableBlur(window); } catch { }
-        var winW = window.ActualWidth;
-        var winH = window.ActualHeight;
-        var btnCx = origin.X + origin.Width / 2;
-        var btnCy = origin.Y + origin.Height / 2;
 
-        double left, top;
-        GetWindowPosition(window, winW, winH, out left, out top);
+        int baseDurMs = theme.WindowAnimDuration > 0 ? theme.WindowAnimDuration : 280;
+        var dur = TimeSpan.FromMilliseconds(baseDurMs * 0.75);
+        var ease = GetEasing(theme.WindowAnimEasing);
 
-        // Same dynamic pivot as open
-        double ox = Math.Clamp((btnCx - left) / winW, 0.0, 1.0);
-        double oy = Math.Clamp((btnCy - top) / winH, 0.0, 1.0);
-        root.RenderTransformOrigin = new Point(ox, oy);
+        var fade = new DoubleAnimation(1, 0, dur) { EasingFunction = ease };
+        fade.Completed += (s, e) => onCompleted();
 
-        // Shrink ~60% back toward button size
-        double rawSx = Math.Clamp(origin.Width / winW, 0.03, 0.45);
-        double rawSy = Math.Clamp(origin.Height / winH, 0.03, 0.45);
-        double targetSx = Lerp(1.0, rawSx, 0.6);
-        double targetSy = Lerp(1.0, rawSy, 0.6);
-
-        // Translate back partially toward button
-        double fullTx = btnCx - left - ox * winW;
-        double fullTy = btnCy - top - oy * winH;
-        double targetTx = fullTx * 0.6;
-        double targetTy = fullTy * 0.6;
-
-        var ease = AppleSpringEase.Snappy;
-        var dur = TimeSpan.FromMilliseconds(250);
-
-        var opAnim = new DoubleAnimation(1, 0, dur) { EasingFunction = ease };
-        opAnim.Completed += (_, _) => onCompleted();
-
-        root.BeginAnimation(UIElement.OpacityProperty, opAnim);
-        scale.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(1, targetSx, dur) { EasingFunction = ease });
-        scale.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(1, targetSy, dur) { EasingFunction = ease });
-        translate.BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation(0, targetTx, dur) { EasingFunction = ease });
-        translate.BeginAnimation(TranslateTransform.YProperty,
-            new DoubleAnimation(0, targetTy, dur) { EasingFunction = ease });
+        root.BeginAnimation(UIElement.OpacityProperty, fade);
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(1, 0.9, dur) { EasingFunction = ease });
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(1, 0.9, dur) { EasingFunction = ease });
     }
 
     // Stagger children with depth-aware spring (travel increases per child)
@@ -385,6 +406,16 @@ public static class FluidMotion
     // iOS 27 stretchy liquid glass crossfade with bouncy swing-tilt landing
     public static void LiquidGlassCrossfade(Border hidePanel, Border showPanel, double direction)
     {
+        if (hidePanel == null || showPanel == null) return;
+        if (hidePanel == showPanel) return;
+
+        // Idempotency check: if showPanel is already fully visible and hidePanel is collapsed, do nothing!
+        if (showPanel.Visibility == Visibility.Visible && showPanel.Opacity >= 0.95 &&
+            (hidePanel.Visibility == Visibility.Collapsed || hidePanel.Opacity <= 0.05))
+        {
+            return;
+        }
+
         string mode = GetAnimationLevel();
         if (mode == "None")
         {
@@ -407,15 +438,14 @@ public static class FluidMotion
         if (mode == "Reduced")
         {
             hidePanel.RenderTransform = Transform.Identity;
-            var hideOp = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(120)) { EasingFunction = AppleSpringEase.Smooth };
+            var hideOp = new DoubleAnimation(0, TimeSpan.FromMilliseconds(120)) { EasingFunction = AppleSpringEase.Smooth };
             hideOp.Completed += (_, _) => hidePanel.Visibility = Visibility.Collapsed;
             hidePanel.BeginAnimation(UIElement.OpacityProperty, hideOp);
 
             showPanel.Visibility = Visibility.Visible;
-            showPanel.Opacity = 0;
             showPanel.RenderTransform = Transform.Identity;
             showPanel.BeginAnimation(UIElement.OpacityProperty,
-                new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150))
+                new DoubleAnimation(1, TimeSpan.FromMilliseconds(150))
                 { BeginTime = TimeSpan.FromMilliseconds(60), EasingFunction = AppleSpringEase.Smooth });
 
             if (showPanel.Child is StackPanel spReduced)
@@ -424,10 +454,8 @@ public static class FluidMotion
                 foreach (UIElement child in spReduced.Children)
                 {
                     if (child is not FrameworkElement fe) continue;
-                    fe.Opacity = 0;
-                    fe.RenderTransform = Transform.Identity;
                     fe.BeginAnimation(UIElement.OpacityProperty,
-                        new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150))
+                        new DoubleAnimation(1, TimeSpan.FromMilliseconds(150))
                         { BeginTime = TimeSpan.FromMilliseconds(60 + idx * 30), EasingFunction = AppleSpringEase.Smooth });
                     idx++;
                 }
@@ -446,32 +474,42 @@ public static class FluidMotion
         var showDelay = TimeSpan.FromMilliseconds(110);   // overlap timing
 
         // ── Outgoing panel (fade-out with slide + dynamic tilt) ──
-        hidePanel.RenderTransformOrigin = new Point(0.5, 0.5);
-        var hideGroup = new TransformGroup();
-        var hideSt = new ScaleTransform(1, 1);
-        var hideRt = new RotateTransform(0);
-        var hideTt = new TranslateTransform(0, 0);
-        hideGroup.Children.Add(hideSt);
-        hideGroup.Children.Add(hideRt);
-        hideGroup.Children.Add(hideTt);
-        hidePanel.RenderTransform = hideGroup;
+        if (hidePanel.Visibility == Visibility.Visible && hidePanel.Opacity > 0.02)
+        {
+            hidePanel.RenderTransformOrigin = new Point(0.5, 0.5);
+            var hideGroup = new TransformGroup();
+            var hideSt = new ScaleTransform(1, 1);
+            var hideRt = new RotateTransform(0);
+            var hideTt = new TranslateTransform(0, 0);
+            hideGroup.Children.Add(hideSt);
+            hideGroup.Children.Add(hideRt);
+            hideGroup.Children.Add(hideTt);
+            hidePanel.RenderTransform = hideGroup;
 
-        var hideOpOrig = new DoubleAnimation(1, 0, hideDur) { EasingFunction = snappy };
-        hideOpOrig.Completed += (_, _) => hidePanel.Visibility = Visibility.Collapsed;
-        hidePanel.BeginAnimation(UIElement.OpacityProperty, hideOpOrig);
+            var hideOpOrig = new DoubleAnimation(0, hideDur) { EasingFunction = snappy };
+            hideOpOrig.Completed += (_, _) => hidePanel.Visibility = Visibility.Collapsed;
+            hidePanel.BeginAnimation(UIElement.OpacityProperty, hideOpOrig);
 
-        hideTt.BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation(0, -direction * 25, hideDur) { EasingFunction = snappy });
-        hideSt.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(1, 0.90, hideDur) { EasingFunction = snappy });
-        hideSt.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(1, 0.90, hideDur) { EasingFunction = snappy });
-        hideRt.BeginAnimation(RotateTransform.AngleProperty,
-            new DoubleAnimation(0, direction * 3.0, hideDur) { EasingFunction = snappy });
+            hideTt.BeginAnimation(TranslateTransform.XProperty,
+                new DoubleAnimation(0, -direction * 25, hideDur) { EasingFunction = snappy });
+            hideSt.BeginAnimation(ScaleTransform.ScaleXProperty,
+                new DoubleAnimation(1, 0.90, hideDur) { EasingFunction = snappy });
+            hideSt.BeginAnimation(ScaleTransform.ScaleYProperty,
+                new DoubleAnimation(1, 0.90, hideDur) { EasingFunction = snappy });
+            hideRt.BeginAnimation(RotateTransform.AngleProperty,
+                new DoubleAnimation(0, direction * 3.0, hideDur) { EasingFunction = snappy });
+        }
+        else
+        {
+            hidePanel.Visibility = Visibility.Collapsed;
+            hidePanel.Opacity = 0;
+        }
 
         // ── Incoming panel (stretchy landing + bouncy rotation) ──
+        bool isAlreadyShowing = showPanel.Visibility == Visibility.Visible && showPanel.Opacity > 0.5;
         showPanel.Visibility = Visibility.Visible;
-        showPanel.Opacity = 0;
+        if (!isAlreadyShowing) showPanel.Opacity = 0;
+
         showPanel.RenderTransformOrigin = new Point(0.5, 0.5);
         var showGroup = new TransformGroup();
         var showSt = new ScaleTransform(0.88, 0.84); // vertical starting stretch
@@ -483,7 +521,7 @@ public static class FluidMotion
         showPanel.RenderTransform = showGroup;
 
         showPanel.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(260))
+            new DoubleAnimation(1, TimeSpan.FromMilliseconds(260))
             { BeginTime = showDelay, EasingFunction = smooth });
 
         showTt.BeginAnimation(TranslateTransform.XProperty,
@@ -504,43 +542,44 @@ public static class FluidMotion
             new DoubleAnimation(-direction * 4.0, 0, showDur)
             { BeginTime = showDelay, EasingFunction = springRot });
 
-        // ── Stagger children (fade-in, slide-up and scale-in) ──
-        if (showPanel.Child is StackPanel sp)
+        // ── Apple Glassmorphic Staggered Child Blossom (Flicker-Free) ──
+        StackPanel? sp = showPanel.Child as StackPanel;
+        if (sp != null)
         {
-            var staggerSpring = AppleSpringEase.Bouncy;
             int idx = 0;
             foreach (UIElement child in sp.Children)
             {
                 if (child is not FrameworkElement fe) continue;
-                fe.Opacity = 0;
+
+                if (!isAlreadyShowing) fe.Opacity = 0;
                 fe.RenderTransformOrigin = new Point(0.5, 0.5);
                 var childGroup = new TransformGroup();
-                var childScale = new ScaleTransform(0.94, 0.94);
-                var childTrans = new TranslateTransform(direction * 12, 14);
+                var childScale = new ScaleTransform(0.92, 0.92);
+                var childTrans = new TranslateTransform(direction * 14, 12 + idx * 2);
                 childGroup.Children.Add(childScale);
                 childGroup.Children.Add(childTrans);
                 fe.RenderTransform = childGroup;
 
-                var delay = TimeSpan.FromMilliseconds(
-                    showDelay.TotalMilliseconds + 40 + idx * 40);
+                var childDur = TimeSpan.FromMilliseconds(260 + idx * 35);
+                var childSpring = new AppleSpringEase(0.72, 0.44 + idx * 0.02);
 
                 fe.BeginAnimation(UIElement.OpacityProperty,
-                    new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(240))
-                    { BeginTime = delay, EasingFunction = smooth });
+                    new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220 + idx * 25))
+                    { EasingFunction = smooth });
 
                 childTrans.BeginAnimation(TranslateTransform.XProperty,
-                    new DoubleAnimation(direction * 12, 0, TimeSpan.FromMilliseconds(480))
-                    { BeginTime = delay, EasingFunction = staggerSpring });
+                    new DoubleAnimation(direction * 14, 0, childDur)
+                    { EasingFunction = childSpring });
                 childTrans.BeginAnimation(TranslateTransform.YProperty,
-                    new DoubleAnimation(14, 0, TimeSpan.FromMilliseconds(480))
-                    { BeginTime = delay, EasingFunction = staggerSpring });
+                    new DoubleAnimation(12 + idx * 2, 0, childDur)
+                    { EasingFunction = childSpring });
 
                 childScale.BeginAnimation(ScaleTransform.ScaleXProperty,
-                    new DoubleAnimation(0.94, 1.0, TimeSpan.FromMilliseconds(480))
-                    { BeginTime = delay, EasingFunction = staggerSpring });
+                    new DoubleAnimation(0.92, 1.0, childDur)
+                    { EasingFunction = childSpring });
                 childScale.BeginAnimation(ScaleTransform.ScaleYProperty,
-                    new DoubleAnimation(0.94, 1.0, TimeSpan.FromMilliseconds(480))
-                    { BeginTime = delay, EasingFunction = staggerSpring });
+                    new DoubleAnimation(0.92, 1.0, childDur)
+                    { EasingFunction = childSpring });
 
                 idx++;
             }
@@ -603,16 +642,18 @@ public static class FluidMotion
     // Progress bar spring animation
     public static void AnimateProgressWidth(FrameworkElement fill, double targetWidth)
     {
-        string mode = GetAnimationLevel();
-        if (mode == "None")
+        var theme = GetThemeSettings();
+        string preset = theme.AnimationPreset ?? theme.AnimationLevel ?? "Balanced";
+        if (preset == "Disabled (Static)" || preset == "Disabled" || preset == "None")
         {
             fill.BeginAnimation(FrameworkElement.WidthProperty, null);
             fill.Width = targetWidth;
             return;
         }
 
+        int speedMs = theme.ProgressBarAnimSpeed > 0 ? theme.ProgressBarAnimSpeed : 350;
         fill.BeginAnimation(FrameworkElement.WidthProperty,
-            new DoubleAnimation(targetWidth, TimeSpan.FromMilliseconds(400))
+            new DoubleAnimation(targetWidth, TimeSpan.FromMilliseconds(speedMs))
             {
                 EasingFunction = AppleSpringEase.Smooth
             });

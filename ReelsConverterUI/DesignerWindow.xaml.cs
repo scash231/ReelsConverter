@@ -45,7 +45,23 @@ public partial class DesignerWindow : Window
     private bool _suppressSettingsUpdate;
     private bool _suppressInputSync;
     private double _currentHue;
-    private readonly ThemeSettings _originalTheme;
+    private ThemeSettings _originalTheme;
+    private AppSettings _originalSettings;
+    private readonly ThemeSettings _initialThemeOnOpen;
+    private readonly AppSettings _initialSettingsOnOpen;
+    private bool _isExplicitCancel;
+    private string? _currentPresetName;
+    private string? _currentGradientEffectMode;
+    private string? _currentAnimationPreset;
+    private string? _currentWindowAnimEasing;
+    private string? _currentWindowAnimStyle;
+    private string? _currentDropdownAnimStyle;
+    private string? _currentTabSwitchTransition;
+    private double _currentBgGradientStrength = 1.0;
+    private bool _currentEnableBgGradient = true;
+    private bool _currentEnableThumbnailGradient = true;
+    private bool _currentThumbnailGradientOnly = false;
+    private bool _currentDisableThumbnailCard = false;
     private int _currentTabIndex = 0;
 
     // Preset definitions sorted by color spectrum (Light/Beige -> Red/Orange/Gold/Brown -> Green/Lime -> Cyan/Blue -> Purple/Pink)
@@ -77,29 +93,40 @@ public partial class DesignerWindow : Window
     {
         InitializeComponent();
         _originRect = originRect;
-        _originalTheme = new ThemeSettings
-        {
-            AdaptiveThumbnailTheme = ThemeService.Current.AdaptiveThumbnailTheme,
-            AnimationLevel = ThemeService.Current.AnimationLevel,
-            BgDeep = ThemeService.Current.BgDeep,
-            BgSurface = ThemeService.Current.BgSurface,
-            BgCard = ThemeService.Current.BgCard,
-            BgElevated = ThemeService.Current.BgElevated,
-            BorderSub = ThemeService.Current.BorderSub,
-            Accent = ThemeService.Current.Accent,
-            AccentAlt = ThemeService.Current.AccentAlt,
-            ButtonGrad = ThemeService.Current.ButtonGrad,
-            TextPrimary = ThemeService.Current.TextPrimary,
-            TextSec = ThemeService.Current.TextSec,
-            SuccessGreen = ThemeService.Current.SuccessGreen,
-            ErrorRed = ThemeService.Current.ErrorRed
-        };
+        _initialThemeOnOpen = ThemeService.Current.Clone();
+        _initialSettingsOnOpen = SettingsService.Current.Clone();
+        _originalTheme = ThemeService.Current.Clone();
+        _originalSettings = SettingsService.Current.Clone();
         Loaded += OnLoaded;
+        SourceInitialized += OnSourceInitialized;
     }
+
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+    }
+
+    private void WindowCornerGrip_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed)
+            SettingsService.StartWindowResizeBottomRight(this);
+    }
+
+    private void WindowCornerGrip_MouseEnter(object sender, MouseEventArgs e)
+        => SettingsService.HandleGripHover(sender, true);
+
+    private void WindowCornerGrip_MouseLeave(object sender, MouseEventArgs e)
+        => SettingsService.HandleGripHover(sender, false);
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        SettingsService.SettingsChanged += (_, _) => SettingsService.ApplyResizeGripVisibility(this);
+        SettingsService.ApplyResizeGripVisibility(this);
+        SettingsService.ApplyWindowSize(this);
+        Width = 680;
+        Height = 500;
         WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+        WindowBlurHelper.ApplyRoundedRegion(this);
         FluidMotion.MorphOpen(RootBorder, WindowScale, WindowTranslate, _originRect, this);
         BuildCategories();
         BuildPresets();
@@ -116,6 +143,10 @@ public partial class DesignerWindow : Window
         ChkBlurLogViewer.IsChecked = settings.BlurLogViewer;
         ChkBlurDevConsole.IsChecked = settings.BlurDevConsole;
         ChkBlurDescEditor.IsChecked = settings.BlurDescEditor;
+        // Load Layout tab checkbox states
+        ChkCompactMode.IsChecked    = settings.CompactMode;
+        ChkHideScrollbars.IsChecked = settings.HideScrollbars;
+        ChkAutoProgress.IsChecked   = settings.AutoShowProgressWindow;
         _suppressSettingsUpdate = false;
 
         // Select first color
@@ -149,24 +180,39 @@ public partial class DesignerWindow : Window
 
             var headerText = new TextBlock
             {
-                Text = group.Key.ToUpperInvariant(),
                 FontSize = 10,
                 FontWeight = FontWeights.Bold,
-                Foreground = (Brush)FindResource("TextSec"),
                 VerticalAlignment = VerticalAlignment.Center,
-                Opacity = 0.8
+                Opacity = 0.9
             };
+            headerText.SetResourceReference(TextBlock.ForegroundProperty, "TextSec");
+            string? catResKey = group.Key switch
+            {
+                "Backgrounds" => "DesignerBackgrounds",
+                "Borders" => "DesignerBorders",
+                "Accent Colors" => "DesignerAccent",
+                "Text" => "DesignerText",
+                "Status" => "DesignerStatus",
+                _ => null
+            };
+            if (catResKey != null)
+                headerText.SetResourceReference(TextBlock.TextProperty, catResKey);
+            else
+                headerText.Text = group.Key.ToUpperInvariant();
+
+            var chevronTxt = new TextBlock
+            {
+                Text = "▾",
+                FontSize = 9,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Opacity = 0.85
+            };
+            chevronTxt.SetResourceReference(TextBlock.ForegroundProperty, "TextSec");
 
             var chevron = new Border
             {
-                Child = new TextBlock
-                {
-                    Text = "▾",
-                    FontSize = 9,
-                    Foreground = (Brush)FindResource("TextSec"),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                },
+                Child = chevronTxt,
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 RenderTransformOrigin = new Point(0.5, 0.5),
@@ -225,12 +271,13 @@ public partial class DesignerWindow : Window
 
         var lbl = new TextBlock
         {
-            Text = label,
             FontSize = 11.5,
-            Foreground = (Brush)FindResource("TextSec"),
+            Opacity = 0.85,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(8, 0, 0, 0)
         };
+        lbl.SetResourceReference(TextBlock.ForegroundProperty, "TextSec");
+        lbl.SetResourceReference(TextBlock.TextProperty, "ColorLabel" + key);
         Grid.SetColumn(lbl, 1);
 
         grid.Children.Add(swatch);
@@ -295,9 +342,9 @@ public partial class DesignerWindow : Window
         {
             var card = new Border
             {
-                Width = 112,
+                Width = 114,
                 Height = 56,
-                Margin = new Thickness(4, 0, 4, 8),
+                Margin = new Thickness(4, 4, 4, 8),
                 CornerRadius = new CornerRadius(8),
                 Background = ThemeService.TryParseColor(theme.BgSurface, out var bgSurf)
                     ? new SolidColorBrush(bgSurf) : new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x24)),
@@ -367,7 +414,7 @@ public partial class DesignerWindow : Window
 
             card.MouseLeftButtonDown += (s, e) =>
             {
-                LoadTheme(theme);
+                LoadTheme(theme, applyPreview: true);
                 e.Handled = true;
             };
 
@@ -409,9 +456,9 @@ public partial class DesignerWindow : Window
     {
         var card = new Border
         {
-            Width = 112,
+            Width = 114,
             Height = 56,
-            Margin = new Thickness(4, 0, 4, 8),
+            Margin = new Thickness(4, 4, 4, 8),
             CornerRadius = new CornerRadius(8),
             Background = ThemeService.TryParseColor(theme.BgSurface, out var bgSurf)
                 ? new SolidColorBrush(bgSurf) : new SolidColorBrush(Color.FromRgb(0x1E, 0x1E, 0x24)),
@@ -504,7 +551,7 @@ public partial class DesignerWindow : Window
 
         card.MouseLeftButtonDown += (s, e) =>
         {
-            LoadTheme(theme);
+            LoadTheme(theme, applyPreview: true);
             e.Handled = true;
         };
 
@@ -538,9 +585,9 @@ public partial class DesignerWindow : Window
     {
         var card = new Border
         {
-            Width = 112,
+            Width = 114,
             Height = 56,
-            Margin = new Thickness(4, 0, 4, 8),
+            Margin = new Thickness(4, 4, 4, 8),
             CornerRadius = new CornerRadius(8),
             Background = (Brush)Application.Current.Resources["InputBg"] ?? Brushes.Transparent,
             BorderBrush = (Brush)Application.Current.Resources["BorderSub"] ?? Brushes.Gray,
@@ -703,7 +750,9 @@ public partial class DesignerWindow : Window
         if (_activeKey != null && _rowElements.TryGetValue(_activeKey, out var oldEl))
         {
             oldEl.row.Background = Brushes.Transparent;
-            oldEl.label.Foreground = (Brush)FindResource("TextSec");
+            oldEl.label.SetResourceReference(TextBlock.ForegroundProperty, "TextSec");
+            oldEl.label.Opacity = 0.85;
+            oldEl.label.FontWeight = FontWeights.Normal;
         }
 
         _activeKey = key;
@@ -711,9 +760,11 @@ public partial class DesignerWindow : Window
         if (_rowElements.TryGetValue(key, out var el))
         {
             el.row.SetResourceReference(Border.BackgroundProperty, "ActiveBg");
-            el.label.Foreground = (Brush)FindResource("TextPrimary");
+            el.label.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimary");
+            el.label.Opacity = 1.0;
+            el.label.FontWeight = FontWeights.SemiBold;
 
-            TxtActiveLabel.Text = _colorDefs.First(c => c.Key == key).Label;
+            TxtActiveLabel.SetResourceReference(TextBlock.TextProperty, "ColorLabel" + key);
             TxtActiveKey.Text = key;
         }
 
@@ -949,6 +1000,8 @@ public partial class DesignerWindow : Window
         1 => PanelCustom,
         2 => PanelCustomize,
         3 => PanelStyle,
+        4 => PanelLayout,
+        5 => PanelAnim,
         _ => null
     };
 
@@ -958,6 +1011,8 @@ public partial class DesignerWindow : Window
         1 => TransCustom,
         2 => TransCustomize,
         3 => TransStyle,
+        4 => TransLayout,
+        5 => TransAnim,
         _ => null
     };
 
@@ -970,37 +1025,63 @@ public partial class DesignerWindow : Window
 
         if (oldPanel == null || newPanel == null || oldTrans == null || newTrans == null) return;
 
-        bool forward = newIndex > oldIndex;
-        double startX = forward ? 30 : -30;
-        double endX = forward ? -30 : 30;
+        var theme = ThemeService.Current ?? new ThemeSettings();
+        string preset = theme.AnimationPreset ?? theme.AnimationLevel ?? "Balanced";
+        string transitionStyle = theme.TabSwitchTransition ?? "Slide & Fade";
 
-        var duration = TimeSpan.FromMilliseconds(250);
+        if (preset == "Disabled (Static)" || transitionStyle == "Instant")
+        {
+            oldPanel.IsHitTestVisible = false;
+            oldPanel.Visibility = Visibility.Collapsed;
+            oldPanel.Opacity = 0;
+            newPanel.Visibility = Visibility.Visible;
+            newPanel.IsHitTestVisible = true;
+            newPanel.Opacity = 1;
+            newTrans.X = 0;
+            return;
+        }
+
+        int baseMs = theme.WindowAnimDuration > 0 ? (int)(theme.WindowAnimDuration * 0.8) : 220;
+        var duration = TimeSpan.FromMilliseconds(baseMs);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
 
-        // 1. Outgoing Panel
+        bool forward = newIndex > oldIndex;
+        double startX = transitionStyle == "Slide & Fade" ? (forward ? 30 : -30) : 0;
+        double endX = transitionStyle == "Slide & Fade" ? (forward ? -30 : 30) : 0;
+
+        // Outgoing Panel
         oldPanel.IsHitTestVisible = false;
         var oldFade = new DoubleAnimation(0, duration) { EasingFunction = ease };
-        var oldMove = new DoubleAnimation(endX, duration) { EasingFunction = ease };
-
         oldFade.Completed += (s, e) =>
         {
             if (oldPanel.Opacity == 0) oldPanel.Visibility = Visibility.Collapsed;
         };
-
         oldPanel.BeginAnimation(OpacityProperty, oldFade);
-        oldTrans.BeginAnimation(TranslateTransform.XProperty, oldMove);
+        if (transitionStyle == "Slide & Fade")
+            oldTrans.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(endX, duration) { EasingFunction = ease });
 
-        // 2. Incoming Panel
+        // Incoming Panel
         newPanel.Visibility = Visibility.Visible;
         newPanel.IsHitTestVisible = true;
         newPanel.Opacity = 0;
         newTrans.X = startX;
 
         var newFade = new DoubleAnimation(1, duration) { EasingFunction = ease };
-        var newMove = new DoubleAnimation(0, duration) { EasingFunction = ease };
-
         newPanel.BeginAnimation(OpacityProperty, newFade);
-        newTrans.BeginAnimation(TranslateTransform.XProperty, newMove);
+
+        if (transitionStyle == "Slide & Fade")
+        {
+            newTrans.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, duration) { EasingFunction = ease });
+        }
+        else if (transitionStyle == "Scale Morph")
+        {
+            var scaleAnim = new DoubleAnimation(0.94, 1.0, duration) { EasingFunction = ease };
+            newPanel.RenderTransformOrigin = new Point(0.5, 0.5);
+            var st = new ScaleTransform(0.94, 0.94);
+            newPanel.RenderTransform = st;
+            st.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
+            st.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
+        }
     }
 
     private void ApplyThemeCorrectly(ThemeSettings theme)
@@ -1020,24 +1101,33 @@ public partial class DesignerWindow : Window
     // ════════════════════════════════════════════════════════════
     private void Tab_Checked(object sender, RoutedEventArgs e)
     {
-        if (PanelPresets == null || PanelCustom == null || PanelCustomize == null || PanelStyle == null) return;
+        if (PanelPresets == null || PanelCustom == null || PanelCustomize == null || PanelStyle == null || PanelLayout == null || PanelAnim == null) return;
 
         int targetIndex = 0;
         if (TabCustomBtn.IsChecked == true) targetIndex = 1;
         else if (TabCustomizeBtn.IsChecked == true) targetIndex = 2;
         else if (TabStyleBtn.IsChecked == true) targetIndex = 3;
+        else if (TabLayoutBtn.IsChecked == true) targetIndex = 4;
+        else if (TabAnimBtn.IsChecked == true) targetIndex = 5;
+
+        if (BtnResetAnim != null)
+            BtnResetAnim.Visibility = targetIndex == 5 ? Visibility.Visible : Visibility.Collapsed;
 
         if (!IsLoaded)
         {
             _currentTabIndex = targetIndex;
-            PanelPresets.Visibility = targetIndex == 0 ? Visibility.Visible : Visibility.Collapsed;
-            PanelCustom.Visibility = targetIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
+            PanelPresets.Visibility   = targetIndex == 0 ? Visibility.Visible : Visibility.Collapsed;
+            PanelCustom.Visibility    = targetIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
             PanelCustomize.Visibility = targetIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
-            PanelStyle.Visibility = targetIndex == 3 ? Visibility.Visible : Visibility.Collapsed;
-            PanelPresets.Opacity = targetIndex == 0 ? 1 : 0;
-            PanelCustom.Opacity = targetIndex == 1 ? 1 : 0;
+            PanelStyle.Visibility     = targetIndex == 3 ? Visibility.Visible : Visibility.Collapsed;
+            PanelLayout.Visibility    = targetIndex == 4 ? Visibility.Visible : Visibility.Collapsed;
+            PanelAnim.Visibility      = targetIndex == 5 ? Visibility.Visible : Visibility.Collapsed;
+            PanelPresets.Opacity   = targetIndex == 0 ? 1 : 0;
+            PanelCustom.Opacity    = targetIndex == 1 ? 1 : 0;
             PanelCustomize.Opacity = targetIndex == 2 ? 1 : 0;
-            PanelStyle.Opacity = targetIndex == 3 ? 1 : 0;
+            PanelStyle.Opacity     = targetIndex == 3 ? 1 : 0;
+            PanelLayout.Opacity    = targetIndex == 4 ? 1 : 0;
+            PanelAnim.Opacity      = targetIndex == 5 ? 1 : 0;
             return;
         }
 
@@ -1059,54 +1149,69 @@ public partial class DesignerWindow : Window
     // ════════════════════════════════════════════════════════════
     private void UpdatePreview()
     {
-        if (PrvOuter == null) return;
-
-        SetPreviewBg(PrvOuter, "BgDeep");
-        SetPreviewBg(PrvCard, "BgCard");
-        SetPreviewBorder(PrvCard, "BorderSub");
-        SetPreviewFg(PrvTitle, "TextPrimary");
-        SetPreviewFg(PrvSubtitle, "TextSec");
-        SetPreviewBg(PrvButton, "ButtonGrad");
-        SetPreviewFg(PrvBtnText, "TextPrimary");
-        SetPreviewBg(PrvInput, "BgElevated");
-        SetPreviewBorder(PrvInput, "BorderSub");
-        if (PrvInputText != null) SetPreviewFg(PrvInputText, "TextSec");
-        SetPreviewBg(PrvDotOk, "SuccessGreen");
-        SetPreviewBg(PrvDotErr, "ErrorRed");
-
-        if (PrvTextHeading != null) SetPreviewFg(PrvTextHeading, "TextPrimary");
-        if (PrvContentCard != null)
-        {
-            SetPreviewBg(PrvContentCard, "BgSurface");
-            SetPreviewBorder(PrvContentCard, "BorderSub");
-        }
-        if (PrvProgressFill != null) SetPreviewBg(PrvProgressFill, "Accent");
-
-        ApplyThemeCorrectly(ReadTheme());
-    }
-
-    private void SetPreviewBg(Border b, string key)
-    {
-        if (_colorValues.TryGetValue(key, out var hex) && ThemeService.TryParseColor(hex, out var c))
-            b.Background = new SolidColorBrush(c);
-    }
-
-    private void SetPreviewBorder(Border b, string key)
-    {
-        if (_colorValues.TryGetValue(key, out var hex) && ThemeService.TryParseColor(hex, out var c))
-            b.BorderBrush = new SolidColorBrush(c);
-    }
-
-    private void SetPreviewFg(TextBlock t, string key)
-    {
-        if (_colorValues.TryGetValue(key, out var hex) && ThemeService.TryParseColor(hex, out var c))
-            t.Foreground = new SolidColorBrush(c);
+        if (_suppressSettingsUpdate) return;
+        var theme = ReadTheme();
+        ApplyThemeCorrectly(theme);
+        Services.ThemeService.Save(theme);
+        _originalTheme = theme.Clone();
+        IsSaved = true;
     }
 
     private void ChkAdaptiveTheme_Changed(object sender, RoutedEventArgs e)
     {
-        if (_suppressPickerUpdate) return;
+        if (_suppressPickerUpdate || _suppressSettingsUpdate) return;
         UpdatePreview();
+    }
+
+    private void ChkEnableBorders_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressPickerUpdate || _suppressSettingsUpdate) return;
+        UpdatePreview();
+    }
+
+    private void HeaderLiquidGlass_Click(object sender, MouseButtonEventArgs e)
+        => ToggleCollapsibleSection(PanelLiquidGlassBody, RotLiquidGlassArrow, TransLiquidGlassBody);
+
+    private void HeaderMotionEffects_Click(object sender, MouseButtonEventArgs e)
+        => ToggleCollapsibleSection(PanelMotionEffectsBody, RotMotionEffectsArrow, TransMotionEffectsBody);
+
+    private void HeaderFineTuning_Click(object sender, MouseButtonEventArgs e)
+        => ToggleCollapsibleSection(PanelFineTuningBody, RotFineTuningArrow, TransFineTuningBody);
+
+    private void ToggleCollapsibleSection(FrameworkElement? bodyPanel, RotateTransform? arrowRot, TranslateTransform? bodyTrans)
+    {
+        if (bodyPanel == null || arrowRot == null || bodyTrans == null) return;
+
+        var ease = AppleSpringEase.Interactive;
+        var dur = TimeSpan.FromMilliseconds(220);
+
+        if (bodyPanel.Visibility == Visibility.Visible)
+        {
+            // Collapse Animation
+            arrowRot.BeginAnimation(RotateTransform.AngleProperty,
+                new DoubleAnimation(0, TimeSpan.FromMilliseconds(180)) { EasingFunction = AppleSpringEase.Snappy });
+
+            var opAnim = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(180)) { EasingFunction = AppleSpringEase.Snappy };
+            opAnim.Completed += (s, args) => bodyPanel.Visibility = Visibility.Collapsed;
+            bodyPanel.BeginAnimation(UIElement.OpacityProperty, opAnim);
+
+            bodyTrans.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(0, -6, TimeSpan.FromMilliseconds(180)) { EasingFunction = AppleSpringEase.Snappy });
+        }
+        else
+        {
+            // Expand Animation
+            bodyPanel.Visibility = Visibility.Visible;
+
+            arrowRot.BeginAnimation(RotateTransform.AngleProperty,
+                new DoubleAnimation(180, dur) { EasingFunction = ease });
+
+            bodyPanel.BeginAnimation(UIElement.OpacityProperty,
+                new DoubleAnimation(0, 1, dur) { EasingFunction = ease });
+
+            bodyTrans.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(-6, 0, dur) { EasingFunction = ease });
+        }
     }
 
     private void BlurCheck_Changed(object sender, RoutedEventArgs e)
@@ -1114,21 +1219,43 @@ public partial class DesignerWindow : Window
         if (_suppressSettingsUpdate) return;
 
         var settings = Services.SettingsService.Current;
-        settings.BlurMainWindow = ChkBlurMain.IsChecked == true;
-        settings.BlurEditor = ChkBlurEditor.IsChecked == true;
-        settings.BlurSettings = ChkBlurSettings.IsChecked == true;
-        settings.BlurLogViewer = ChkBlurLogViewer.IsChecked == true;
-        settings.BlurDevConsole = ChkBlurDevConsole.IsChecked == true;
-        settings.BlurDescEditor = ChkBlurDescEditor.IsChecked == true;
+        settings.BlurMainWindow = ChkBlurMain?.IsChecked == true;
+        settings.BlurEditor = ChkBlurEditor?.IsChecked == true;
+        settings.BlurSettings = ChkBlurSettings?.IsChecked == true;
+        settings.BlurLogViewer = ChkBlurLogViewer?.IsChecked == true;
+        settings.BlurDevConsole = ChkBlurDevConsole?.IsChecked == true;
+        settings.BlurDescEditor = ChkBlurDescEditor?.IsChecked == true;
 
         Services.SettingsService.Save(settings);
+        _originalSettings = settings.Clone();
+        IsSaved = true;
+
+        if (Owner is MainWindow mainWin)
+        {
+            if (settings.BlurMainWindow)
+                Services.WindowBlurHelper.EnableBlurWithFade(mainWin, mainWin.RootBorder);
+            else
+                Services.WindowBlurHelper.DisableBlur(mainWin);
+        }
+    }
+
+    private void ChkLayoutOption_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressSettingsUpdate) return;
+        var s = Services.SettingsService.Current;
+        s.CompactMode             = ChkCompactMode?.IsChecked == true;
+        s.HideScrollbars          = ChkHideScrollbars?.IsChecked == true;
+        s.AutoShowProgressWindow  = ChkAutoProgress?.IsChecked == true;
+        Services.SettingsService.Save(s);
+        _originalSettings = s.Clone();
+        IsSaved = true;
     }
 
     private void SliderGlassOpacity_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (TxtGlassOpacityPct == null) return;
         TxtGlassOpacityPct.Text = $"{(int)SliderGlassOpacity.Value}%";
-        if (_suppressPickerUpdate) return;
+        if (_suppressPickerUpdate || _suppressSettingsUpdate) return;
 
         if (_colorValues.TryGetValue("BgDeep", out var hex) && ThemeService.TryParseColor(hex, out var color))
         {
@@ -1150,69 +1277,149 @@ public partial class DesignerWindow : Window
     // ════════════════════════════════════════════════════════════
     //  THEME LOAD / READ
     // ════════════════════════════════════════════════════════════
-    private void LoadTheme(ThemeSettings theme)
+    private void LoadTheme(ThemeSettings theme, bool applyPreview = false)
     {
         _suppressPickerUpdate = true;
+        _suppressSettingsUpdate = true;
 
-        if (ChkAdaptiveTheme != null)
+        try
         {
-            ChkAdaptiveTheme.IsChecked = theme.AdaptiveThumbnailTheme;
-        }
+            _currentPresetName = theme.PresetName;
+            _currentGradientEffectMode = theme.GradientEffectMode;
+            _currentAnimationPreset = theme.AnimationPreset;
+            _currentWindowAnimEasing = theme.WindowAnimEasing;
+            _currentWindowAnimStyle = theme.WindowAnimStyle;
+            _currentDropdownAnimStyle = theme.DropdownAnimStyle;
+            _currentTabSwitchTransition = theme.TabSwitchTransition;
+            _currentBgGradientStrength = theme.BgGradientStrength;
+            _currentEnableBgGradient = theme.EnableBgGradient;
+            _currentEnableThumbnailGradient = theme.EnableThumbnailGradient;
+            _currentThumbnailGradientOnly = theme.ThumbnailGradientOnly;
+            _currentDisableThumbnailCard = theme.DisableThumbnailCard;
 
-        if (theme.AnimationLevel == "None")
-        {
-            if (RadAnimNone != null) RadAnimNone.IsChecked = true;
-        }
-        else if (theme.AnimationLevel == "Reduced")
-        {
-            if (RadAnimReduced != null) RadAnimReduced.IsChecked = true;
-        }
-        else
-        {
-            if (RadAnimStandard != null) RadAnimStandard.IsChecked = true;
-        }
+            SetValue("BgDeep", theme.BgDeep);
+            SetValue("BgSurface", theme.BgSurface);
+            SetValue("BgCard", theme.BgCard);
+            SetValue("BgElevated", theme.BgElevated);
+            SetValue("BorderSub", theme.BorderSub);
+            SetValue("Accent", theme.Accent);
+            SetValue("AccentAlt", theme.AccentAlt);
+            SetValue("ButtonGrad", theme.ButtonGrad);
+            SetValue("TextPrimary", theme.TextPrimary);
+            SetValue("TextSec", theme.TextSec);
+            SetValue("SuccessGreen", theme.SuccessGreen);
+            SetValue("ErrorRed", theme.ErrorRed);
 
-        SetValue("BgDeep", theme.BgDeep);
-        SetValue("BgSurface", theme.BgSurface);
-        SetValue("BgCard", theme.BgCard);
-        SetValue("BgElevated", theme.BgElevated);
-        SetValue("BorderSub", theme.BorderSub);
-        SetValue("Accent", theme.Accent);
-        SetValue("AccentAlt", theme.AccentAlt);
-        SetValue("ButtonGrad", theme.ButtonGrad);
-        SetValue("TextPrimary", theme.TextPrimary);
-        SetValue("TextSec", theme.TextSec);
-        SetValue("SuccessGreen", theme.SuccessGreen);
-        SetValue("ErrorRed", theme.ErrorRed);
+            if (ChkAdaptiveTheme != null)
+                ChkAdaptiveTheme.IsChecked = theme.AdaptiveThumbnailTheme;
+            if (ChkEnableBorders != null)
+                ChkEnableBorders.IsChecked = theme.EnableBorders;
 
-        // Load Glass Opacity from theme.BgDeep
-        double opacity = 100;
-        if (!string.IsNullOrEmpty(theme.BgDeep) && theme.BgDeep.StartsWith("#"))
-        {
-            if (theme.BgDeep.Length == 9) // #AARRGGBB
+            if (CmbAnimPreset != null && !string.IsNullOrEmpty(theme.AnimationPreset))
             {
-                try
+                var match = CmbAnimPreset.Items.Cast<ComboBoxItem>().FirstOrDefault(i => i.Content?.ToString() == theme.AnimationPreset);
+                if (match != null)
                 {
-                    byte alpha = Convert.ToByte(theme.BgDeep.Substring(1, 2), 16);
-                    opacity = (alpha / 255.0) * 100.0;
+                    CmbAnimPreset.SelectionChanged -= CmbAnimPreset_Changed;
+                    CmbAnimPreset.SelectedItem = match;
+                    CmbAnimPreset.SelectionChanged += CmbAnimPreset_Changed;
                 }
-                catch { }
+                UpdatePresetCardSelection(theme.AnimationPreset);
             }
-        }
 
-        if (SliderGlassOpacity != null)
+            // Load Glass Opacity from theme.BgDeep
+            double opacity = 100;
+            if (!string.IsNullOrEmpty(theme.BgDeep) && theme.BgDeep.StartsWith("#"))
+            {
+                if (theme.BgDeep.Length == 9) // #AARRGGBB
+                {
+                    try
+                    {
+                        byte alpha = Convert.ToByte(theme.BgDeep.Substring(1, 2), 16);
+                        opacity = (alpha / 255.0) * 100.0;
+                    }
+                    catch { }
+                }
+            }
+
+            if (SliderGlassOpacity != null)
+            {
+                SliderGlassOpacity.Value = Math.Clamp(opacity, 50, 100);
+                if (TxtGlassOpacityPct != null)
+                    TxtGlassOpacityPct.Text = $"{(int)SliderGlassOpacity.Value}%";
+            }
+
+            if (SliderWinDur != null) SliderWinDur.Value = theme.WindowAnimDuration > 0 ? theme.WindowAnimDuration : 380;
+            if (SliderHoverScale != null) SliderHoverScale.Value = theme.ButtonHoverScale > 0 ? theme.ButtonHoverScale : 1.03;
+            if (SliderProgSpeed != null) SliderProgSpeed.Value = theme.ProgressBarAnimSpeed > 0 ? theme.ProgressBarAnimSpeed : 350;
+            if (ChkHoverMicro != null) ChkHoverMicro.IsChecked = theme.EnableHoverMicroAnims;
+            if (ChkProgPulse != null) ChkProgPulse.IsChecked = theme.EnableProgressPulse;
+            if (ChkStaggered != null) ChkStaggered.IsChecked = theme.EnableStaggeredAnimations;
+
+            SelectComboByContent(CmbWinEasing, theme.WindowAnimEasing);
+            SelectComboByContent(CmbWinStyle, theme.WindowAnimStyle);
+            SelectComboByContent(CmbDropdownStyle, theme.DropdownAnimStyle);
+            SelectComboByContent(CmbTabTransition, theme.TabSwitchTransition);
+            SelectComboByTag(CmbGradEffectMode, theme.GradientEffectMode);
+        }
+        finally
         {
-            SliderGlassOpacity.Value = Math.Clamp(opacity, 50, 100);
-            if (TxtGlassOpacityPct != null)
-                TxtGlassOpacityPct.Text = $"{(int)SliderGlassOpacity.Value}%";
+            Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ContextIdle);
+            _suppressPickerUpdate = false;
+            _suppressSettingsUpdate = false;
         }
-
-        _suppressPickerUpdate = false;
 
         if (_activeKey != null)
             SelectColor(_activeKey);
 
-        UpdatePreview();
+        if (applyPreview)
+            UpdatePreview();
+    }
+
+    private void SelectComboByContent(ComboBox? combo, string? value)
+    {
+        if (combo == null || string.IsNullOrEmpty(value)) return;
+        var match = combo.Items.Cast<ComboBoxItem>().FirstOrDefault(i => i.Content?.ToString() == value);
+        if (match != null)
+        {
+            if (combo == CmbAnimPreset) combo.SelectionChanged -= CmbAnimPreset_Changed;
+            else if (combo == CmbWinEasing) combo.SelectionChanged -= CmbWinEasing_Changed;
+            else if (combo == CmbWinStyle) combo.SelectionChanged -= CmbWinStyle_Changed;
+            else if (combo == CmbDropdownStyle) combo.SelectionChanged -= CmbDropdownStyle_Changed;
+            else if (combo == CmbTabTransition) combo.SelectionChanged -= CmbTabTransition_Changed;
+
+            combo.SelectedItem = match;
+
+            if (combo == CmbAnimPreset) combo.SelectionChanged += CmbAnimPreset_Changed;
+            else if (combo == CmbWinEasing) combo.SelectionChanged += CmbWinEasing_Changed;
+            else if (combo == CmbWinStyle) combo.SelectionChanged += CmbWinStyle_Changed;
+            else if (combo == CmbDropdownStyle) combo.SelectionChanged += CmbDropdownStyle_Changed;
+            else if (combo == CmbTabTransition) combo.SelectionChanged += CmbTabTransition_Changed;
+        }
+    }
+
+    private void SelectComboByTag(ComboBox? combo, string? tag)
+    {
+        if (combo == null || string.IsNullOrEmpty(tag)) return;
+        var match = combo.Items.Cast<ComboBoxItem>().FirstOrDefault(i => i.Tag?.ToString() == tag);
+        if (match != null)
+        {
+            if (combo == CmbGradEffectMode) combo.SelectionChanged -= CmbGradEffectMode_SelectionChanged;
+            combo.SelectedItem = match;
+            if (combo == CmbGradEffectMode) combo.SelectionChanged += CmbGradEffectMode_SelectionChanged;
+        }
+    }
+
+    private void CmbGradEffectMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressSettingsUpdate) return;
+        if (CmbGradEffectMode?.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+        {
+            _currentGradientEffectMode = tag;
+        }
+        var theme = ReadTheme();
+        ApplyThemeCorrectly(theme);
+        Services.ThemeService.Save(theme);
     }
 
     private void SetValue(string key, string hex)
@@ -1229,26 +1436,70 @@ public partial class DesignerWindow : Window
         ThemeService.Apply(theme);
     }
 
-    private ThemeSettings ReadTheme() => new()
+    private ThemeSettings ReadTheme()
     {
-        AdaptiveThumbnailTheme = ChkAdaptiveTheme?.IsChecked == true,
-        AnimationLevel = RadAnimNone?.IsChecked == true ? "None" : (RadAnimReduced?.IsChecked == true ? "Reduced" : "Standard"),
-        BgDeep = GetHex("BgDeep"),
-        BgSurface = GetHex("BgSurface"),
-        BgCard = GetHex("BgCard"),
-        BgElevated = GetHex("BgElevated"),
-        BorderSub = GetHex("BorderSub"),
-        Accent = GetHex("Accent"),
-        AccentAlt = GetHex("AccentAlt"),
-        ButtonGrad = GetHex("ButtonGrad"),
-        TextPrimary = GetHex("TextPrimary"),
-        TextSec = GetHex("TextSec"),
-        SuccessGreen = GetHex("SuccessGreen"),
-        ErrorRed = GetHex("ErrorRed"),
-    };
+        var cur = ThemeService.Current;
+        return new ThemeSettings
+        {
+            PresetName = _currentPresetName ?? cur.PresetName,
+            AdaptiveThumbnailTheme = ChkAdaptiveTheme != null ? ChkAdaptiveTheme.IsChecked == true : cur.AdaptiveThumbnailTheme,
+            EnableBorders = ChkEnableBorders != null ? ChkEnableBorders.IsChecked == true : cur.EnableBorders,
+            GradientEffectMode = (CmbGradEffectMode?.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? _currentGradientEffectMode ?? cur.GradientEffectMode ?? "thumbnail_only",
+            BgGradientStrength = _currentBgGradientStrength,
+            EnableBgGradient = _currentEnableBgGradient,
+            EnableThumbnailGradient = _currentEnableThumbnailGradient,
+            ThumbnailGradientOnly = _currentThumbnailGradientOnly,
+            DisableThumbnailCard = _currentDisableThumbnailCard,
+            AnimationLevel = (CmbAnimPreset?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? _currentAnimationPreset ?? cur.AnimationPreset ?? "Smooth Liquid",
+            AnimationPreset = (CmbAnimPreset?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? _currentAnimationPreset ?? cur.AnimationPreset ?? "Smooth Liquid",
+            WindowAnimDuration = SliderWinDur != null ? (int)Math.Round(SliderWinDur.Value) : cur.WindowAnimDuration,
+            WindowAnimEasing = (CmbWinEasing?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? _currentWindowAnimEasing ?? cur.WindowAnimEasing ?? "Apple Spring (Bouncy)",
+            WindowAnimStyle = (CmbWinStyle?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? _currentWindowAnimStyle ?? cur.WindowAnimStyle ?? "Morph & Scale",
+            ButtonHoverScale = SliderHoverScale != null ? SliderHoverScale.Value : cur.ButtonHoverScale,
+            EnableHoverMicroAnims = ChkHoverMicro != null ? ChkHoverMicro.IsChecked == true : cur.EnableHoverMicroAnims,
+            ProgressBarAnimSpeed = SliderProgSpeed != null ? (int)Math.Round(SliderProgSpeed.Value) : cur.ProgressBarAnimSpeed,
+            EnableProgressPulse = ChkProgPulse != null ? ChkProgPulse.IsChecked == true : cur.EnableProgressPulse,
+            DropdownAnimStyle = (CmbDropdownStyle?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? _currentDropdownAnimStyle ?? cur.DropdownAnimStyle ?? "Scale & Fade",
+            TabSwitchTransition = (CmbTabTransition?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? _currentTabSwitchTransition ?? cur.TabSwitchTransition ?? "Slide & Fade",
+            EnableStaggeredAnimations = ChkStaggered != null ? ChkStaggered.IsChecked == true : cur.EnableStaggeredAnimations,
+            BgDeep = GetHex("BgDeep"),
+            BgSurface = GetHex("BgSurface"),
+            BgCard = GetHex("BgCard"),
+            BgElevated = GetHex("BgElevated"),
+            BorderSub = GetHex("BorderSub"),
+            Accent = GetHex("Accent"),
+            AccentAlt = GetHex("AccentAlt"),
+            ButtonGrad = GetHex("ButtonGrad"),
+            TextPrimary = GetHex("TextPrimary"),
+            TextSec = GetHex("TextSec"),
+            SuccessGreen = GetHex("SuccessGreen"),
+            ErrorRed = GetHex("ErrorRed"),
+        };
+    }
 
-    private string GetHex(string key) =>
-        _colorValues.TryGetValue(key, out var hex) ? hex : "#000000";
+    private string GetHex(string key)
+    {
+        if (_colorValues.TryGetValue(key, out var hex) && !string.IsNullOrEmpty(hex) && hex != "#000000")
+            return hex;
+
+        var cur = ThemeService.Current;
+        return key switch
+        {
+            "BgDeep"       => cur.BgDeep,
+            "BgSurface"    => cur.BgSurface,
+            "BgCard"       => cur.BgCard,
+            "BgElevated"   => cur.BgElevated,
+            "BorderSub"    => cur.BorderSub,
+            "Accent"       => cur.Accent,
+            "AccentAlt"    => cur.AccentAlt,
+            "ButtonGrad"   => cur.ButtonGrad,
+            "TextPrimary"  => cur.TextPrimary,
+            "TextSec"      => cur.TextSec,
+            "SuccessGreen" => cur.SuccessGreen,
+            "ErrorRed"     => cur.ErrorRed,
+            _              => "#1E1E24"
+        };
+    }
 
     // ════════════════════════════════════════════════════════════
     //  PRESETS
@@ -1257,11 +1508,50 @@ public partial class DesignerWindow : Window
     {
         if (sender is not Button btn || btn.Tag is not string tag) return;
         var theme = _presets.FirstOrDefault(p => p.Tag == tag).Theme ?? ThemeService.DefaultDark;
-        LoadTheme(theme);
+        LoadTheme(theme, applyPreview: true);
     }
 
     private void Reset_Click(object sender, RoutedEventArgs e)
-        => LoadTheme(ThemeService.DefaultDark);
+        => LoadTheme(ThemeService.DefaultDark, applyPreview: true);
+
+    private void ResetAnim_Click(object sender, RoutedEventArgs e)
+    {
+        _suppressSettingsUpdate = true;
+
+        SelectComboByContent(CmbAnimPreset, "Smooth Liquid");
+        UpdatePresetCardSelection("Smooth Liquid");
+        if (SliderWinDur != null) SliderWinDur.Value = 380;
+        SelectComboByContent(CmbWinEasing, "Apple Spring (Bouncy)");
+        SelectComboByContent(CmbWinStyle, "Morph & Scale");
+
+        if (ChkHoverMicro != null) ChkHoverMicro.IsChecked = true;
+        if (SliderHoverScale != null) SliderHoverScale.Value = 1.03;
+        if (SliderProgSpeed != null) SliderProgSpeed.Value = 350;
+        if (ChkProgPulse != null) ChkProgPulse.IsChecked = true;
+
+        SelectComboByContent(CmbTabTransition, "Slide & Fade");
+        SelectComboByContent(CmbDropdownStyle, "Scale & Fade");
+        if (ChkStaggered != null) ChkStaggered.IsChecked = true;
+
+        _suppressSettingsUpdate = false;
+
+        var theme = ReadTheme();
+        ApplyThemeCorrectly(theme);
+        Services.ThemeService.Save(theme);
+        _originalTheme = theme.Clone();
+        IsSaved = true;
+    }
+
+    private void SaveAnimOption()
+    {
+        if (!IsLoaded || _suppressSettingsUpdate || _suppressPickerUpdate) return;
+
+        var theme = ReadTheme();
+        ApplyThemeCorrectly(theme);
+        Services.ThemeService.Save(theme);
+        _originalTheme = theme.Clone();
+        IsSaved = true;
+    }
 
     // ════════════════════════════════════════════════════════════
     //  SAVE / CANCEL / CLOSE
@@ -1270,12 +1560,47 @@ public partial class DesignerWindow : Window
     {
         var theme = ReadTheme();
         ThemeService.Save(theme);
-        ThemeService.Apply(theme);
+        ApplyThemeCorrectly(theme);
+        _originalTheme = theme.Clone();
+        _originalSettings = SettingsService.Current.Clone();
+        IsSaved = true;
+
+        if (BtnSaveOnly != null)
+        {
+            BtnSaveOnly.Content = "Saved ✓";
+            var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+            timer.Tick += (st, se) =>
+            {
+                timer.Stop();
+                try
+                {
+                    BtnSaveOnly.SetResourceReference(ContentControl.ContentProperty, "BtnSaveSettings");
+                }
+                catch
+                {
+                    BtnSaveOnly.Content = "Save";
+                }
+            };
+            timer.Start();
+        }
+    }
+
+    private void SaveAndExit_Click(object sender, RoutedEventArgs e)
+    {
+        var theme = ReadTheme();
+        ThemeService.Save(theme);
+        ApplyThemeCorrectly(theme);
+        _originalTheme = theme.Clone();
+        _originalSettings = SettingsService.Current.Clone();
+        IsSaved = true;
         CloseWithAnimation(true);
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)
-        => CloseWithAnimation(false);
+    {
+        _isExplicitCancel = true;
+        CloseWithAnimation(false);
+    }
 
     private void TitleBar_Drag(object s, MouseButtonEventArgs e)
     {
@@ -1293,11 +1618,19 @@ public partial class DesignerWindow : Window
         if (_isAnimatingClose) return;
         _isAnimatingClose = true;
         _pendingResult = result;
-        if (result != true)
+        if (_isExplicitCancel)
+        {
+            ApplyThemeCorrectly(_initialThemeOnOpen);
+            Services.ThemeService.Save(_initialThemeOnOpen);
+            Services.SettingsService.Save(_initialSettingsOnOpen);
+        }
+        else if (result != true && !IsSaved)
         {
             ApplyThemeCorrectly(_originalTheme);
+            Services.ThemeService.Save(_originalTheme);
+            Services.SettingsService.Save(_originalSettings);
         }
-        IsSaved = (result == true);
+        IsSaved = (result == true || IsSaved);
         FluidMotion.MorphClose(RootBorder, WindowScale, WindowTranslate, _originRect, this,
             () => {
                 try
@@ -1353,5 +1686,181 @@ public partial class DesignerWindow : Window
             h = 60 * ((rd - gd) / delta + 4);
 
         if (h < 0) h += 360;
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  ANIMATIONS TAB HANDLERS & PLAYGROUND
+    // ════════════════════════════════════════════════════════════
+
+    private void PresetCard_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is Border border && border.Tag is string preset)
+        {
+            ApplyMotionProfile(preset);
+        }
+    }
+
+    private void ApplyMotionProfile(string preset)
+    {
+        _currentAnimationPreset = preset;
+        SelectComboByContent(CmbAnimPreset, preset);
+        UpdatePresetCardSelection(preset);
+
+        _suppressSettingsUpdate = true;
+        try
+        {
+            switch (preset)
+            {
+                case "Disabled (Static)":
+                    if (SliderWinDur != null) SliderWinDur.Value = 100;
+                    if (SliderHoverScale != null) SliderHoverScale.Value = 1.00;
+                    if (SliderProgSpeed != null) SliderProgSpeed.Value = 100;
+                    if (ChkHoverMicro != null) ChkHoverMicro.IsChecked = false;
+                    if (ChkProgPulse != null) ChkProgPulse.IsChecked = false;
+                    if (ChkStaggered != null) ChkStaggered.IsChecked = false;
+                    break;
+                case "Subtle":
+                    if (SliderWinDur != null) SliderWinDur.Value = 200;
+                    if (SliderHoverScale != null) SliderHoverScale.Value = 1.015;
+                    if (SliderProgSpeed != null) SliderProgSpeed.Value = 250;
+                    if (ChkHoverMicro != null) ChkHoverMicro.IsChecked = true;
+                    if (ChkProgPulse != null) ChkProgPulse.IsChecked = false;
+                    if (ChkStaggered != null) ChkStaggered.IsChecked = true;
+                    break;
+                case "Balanced":
+                    if (SliderWinDur != null) SliderWinDur.Value = 300;
+                    if (SliderHoverScale != null) SliderHoverScale.Value = 1.03;
+                    if (SliderProgSpeed != null) SliderProgSpeed.Value = 350;
+                    if (ChkHoverMicro != null) ChkHoverMicro.IsChecked = true;
+                    if (ChkProgPulse != null) ChkProgPulse.IsChecked = true;
+                    if (ChkStaggered != null) ChkStaggered.IsChecked = true;
+                    break;
+                case "Smooth Liquid":
+                    if (SliderWinDur != null) SliderWinDur.Value = 380;
+                    if (SliderHoverScale != null) SliderHoverScale.Value = 1.03;
+                    if (SliderProgSpeed != null) SliderProgSpeed.Value = 350;
+                    if (ChkHoverMicro != null) ChkHoverMicro.IsChecked = true;
+                    if (ChkProgPulse != null) ChkProgPulse.IsChecked = true;
+                    if (ChkStaggered != null) ChkStaggered.IsChecked = true;
+                    break;
+                case "Hyper Fluid":
+                    if (SliderWinDur != null) SliderWinDur.Value = 480;
+                    if (SliderHoverScale != null) SliderHoverScale.Value = 1.08;
+                    if (SliderProgSpeed != null) SliderProgSpeed.Value = 650;
+                    if (ChkHoverMicro != null) ChkHoverMicro.IsChecked = true;
+                    if (ChkProgPulse != null) ChkProgPulse.IsChecked = true;
+                    if (ChkStaggered != null) ChkStaggered.IsChecked = true;
+                    break;
+            }
+        }
+        finally
+        {
+            _suppressSettingsUpdate = false;
+        }
+
+        SaveAnimOption();
+    }
+
+    private void UpdatePresetCardSelection(string? preset)
+    {
+        if (string.IsNullOrEmpty(preset)) preset = "Smooth Liquid";
+
+        Brush accentBrush;
+        Brush borderSubBrush;
+        try
+        {
+            accentBrush = (Brush)FindResource("Accent");
+            borderSubBrush = (Brush)FindResource("BorderSub");
+        }
+        catch
+        {
+            accentBrush = Brushes.DodgerBlue;
+            borderSubBrush = Brushes.Gray;
+        }
+
+        var cards = new[] {
+            (CardPresetStatic, "Disabled (Static)"),
+            (CardPresetSubtle, "Subtle"),
+            (CardPresetBalanced, "Balanced"),
+            (CardPresetLiquid, "Smooth Liquid")
+        };
+
+        foreach (var (card, key) in cards)
+        {
+            if (card == null) continue;
+            bool isSelected = string.Equals(preset, key, StringComparison.OrdinalIgnoreCase);
+            card.BorderBrush = isSelected ? accentBrush : borderSubBrush;
+            card.BorderThickness = isSelected ? new Thickness(2) : new Thickness(1.5);
+        }
+    }
+
+    private void CmbAnimPreset_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressSettingsUpdate || _suppressPickerUpdate || CmbAnimPreset?.SelectedItem is not ComboBoxItem item) return;
+        var preset = item.Content?.ToString() ?? "Balanced";
+        ApplyMotionProfile(preset);
+    }
+
+    private void SliderWinDur_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (TxtWinDurVal != null) TxtWinDurVal.Text = $"{Math.Round(e.NewValue)} ms";
+        if (_suppressSettingsUpdate || _suppressPickerUpdate) return;
+        SaveAnimOption();
+    }
+
+    private void CmbWinEasing_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressSettingsUpdate || _suppressPickerUpdate) return;
+        SaveAnimOption();
+    }
+
+    private void CmbWinStyle_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressSettingsUpdate || _suppressPickerUpdate) return;
+        SaveAnimOption();
+    }
+
+    private void ChkHoverMicro_Click(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded || _suppressSettingsUpdate || _suppressPickerUpdate) return;
+        SaveAnimOption();
+    }
+
+    private void SliderHoverScale_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (TxtHoverScaleVal != null) TxtHoverScaleVal.Text = $"{e.NewValue:0.00}x";
+        if (!IsLoaded || _suppressSettingsUpdate || _suppressPickerUpdate) return;
+        SaveAnimOption();
+    }
+
+    private void SliderProgSpeed_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (TxtProgSpeedVal != null) TxtProgSpeedVal.Text = $"{Math.Round(e.NewValue)} ms";
+        if (!IsLoaded || _suppressSettingsUpdate || _suppressPickerUpdate) return;
+        SaveAnimOption();
+    }
+
+    private void ChkProgPulse_Click(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded || _suppressSettingsUpdate || _suppressPickerUpdate) return;
+        SaveAnimOption();
+    }
+
+    private void CmbTabTransition_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || _suppressSettingsUpdate || _suppressPickerUpdate) return;
+        SaveAnimOption();
+    }
+
+    private void CmbDropdownStyle_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!IsLoaded || _suppressSettingsUpdate || _suppressPickerUpdate) return;
+        SaveAnimOption();
+    }
+
+    private void ChkStaggered_Click(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded || _suppressSettingsUpdate || _suppressPickerUpdate) return;
+        SaveAnimOption();
     }
 }

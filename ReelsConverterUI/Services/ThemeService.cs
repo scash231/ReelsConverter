@@ -40,15 +40,81 @@ public static class ThemeService
     public static void Apply(ThemeSettings theme)
     {
         var res = Application.Current.Resources;
-        SetBrush(res, "BgDeep", theme.BgDeep);
-        SetBrush(res, "BgSurface", theme.BgSurface);
-        SetBrush(res, "BgCard", theme.BgCard);
-        SetBrush(res, "BgElevated", theme.BgElevated);
-        SetBrush(res, "BorderSub", theme.BorderSub);
+
+        // Detect if light theme by checking background deep brightness
+        bool isLight = false;
+        if (TryParseColor(theme.BgDeep, out var bgDeepColor))
+        {
+            // Standard relative luminance formula
+            double luminance = (0.2126 * bgDeepColor.R + 0.7152 * bgDeepColor.G + 0.0722 * bgDeepColor.B) / 255.0;
+            isLight = luminance > 0.5;
+        }
+
+        // Auto-enforce contrast for TextPrimary, TextSec, and BorderSub on dark and light backgrounds
+        string primaryHex = theme.TextPrimary;
+        string secHex = theme.TextSec;
+        string borderSubHex = theme.BorderSub;
+
+        if (!isLight)
+        {
+            if (TryParseColor(theme.TextPrimary, out var pCol))
+            {
+                double pLum = (0.2126 * pCol.R + 0.7152 * pCol.G + 0.0722 * pCol.B) / 255.0;
+                if (pLum < 0.55) primaryHex = "#F1F5F9"; // Crisp bright white-slate fallback
+            }
+            else primaryHex = "#F1F5F9";
+
+            if (TryParseColor(theme.TextSec, out var sCol))
+            {
+                double sLum = (0.2126 * sCol.R + 0.7152 * sCol.G + 0.0722 * sCol.B) / 255.0;
+                if (sLum < 0.40) secHex = "#94A3B8"; // High-contrast silver secondary text fallback
+            }
+            else secHex = "#94A3B8";
+
+            // Subtle dark charcoal border for dark mode so no bright border outlines appear
+            borderSubHex = "#38383D";
+        }
+        else
+        {
+            if (TryParseColor(theme.TextPrimary, out var pCol))
+            {
+                double pLum = (0.2126 * pCol.R + 0.7152 * pCol.G + 0.0722 * pCol.B) / 255.0;
+                if (pLum > 0.35) primaryHex = "#0F172A"; // Crisp dark slate text for light background
+            }
+            else primaryHex = "#0F172A";
+
+            if (TryParseColor(theme.TextSec, out var sCol))
+            {
+                double sLum = (0.2126 * sCol.R + 0.7152 * sCol.G + 0.0722 * sCol.B) / 255.0;
+                if (sLum > 0.35) secHex = "#334155"; // Dark slate secondary text for light background
+            }
+            else secHex = "#334155";
+
+            if (TryParseColor(theme.BorderSub, out var bCol))
+            {
+                double bLum = (0.2126 * bCol.R + 0.7152 * bCol.G + 0.0722 * bCol.B) / 255.0;
+                if (bLum > 0.50 || bLum < 0.15) borderSubHex = "#64748B"; // Crisp distinct border for light mode
+            }
+            else borderSubHex = "#64748B";
+        }
+
+        byte deepAlpha = 255;
+        if (TryParseColor(theme.BgDeep, out var deepCol))
+        {
+            deepAlpha = deepCol.A;
+        }
+
+        string effectiveBorderSub = theme.EnableBorders ? borderSubHex : "#00000000";
+
+        SetBrush(res, "BgDeep", theme.BgDeep, deepAlpha);
+        SetBrush(res, "BgSurface", theme.BgSurface, deepAlpha);
+        SetBrush(res, "BgCard", theme.BgCard, deepAlpha);
+        SetBrush(res, "BgElevated", theme.BgElevated, deepAlpha);
+        SetBrush(res, "BorderSub", effectiveBorderSub);
         SetBrush(res, "Accent", theme.Accent);
         SetBrush(res, "AccentPink", theme.AccentAlt);
-        SetBrush(res, "TextPrimary", theme.TextPrimary);
-        SetBrush(res, "TextSec", theme.TextSec);
+        SetBrush(res, "TextPrimary", primaryHex);
+        SetBrush(res, "TextSec", secHex);
         SetBrush(res, "SuccessGreen", theme.SuccessGreen);
         SetBrush(res, "ErrorRed", theme.ErrorRed);
 
@@ -65,14 +131,9 @@ public static class ThemeService
             }
         }
 
-        // Detect if light theme by checking background deep brightness
-        bool isLight = false;
-        if (TryParseColor(theme.BgDeep, out var bgDeepColor))
-        {
-            // Standard relative luminance formula
-            double luminance = (0.2126 * bgDeepColor.R + 0.7152 * bgDeepColor.G + 0.0722 * bgDeepColor.B) / 255.0;
-            isLight = luminance > 0.5;
-        }
+        res["HeaderGrad"] = res["BgSurface"];
+        res["BgGrad"] = res["BgDeep"];
+        res["ThumbGrad"] = res["InputBg"];
 
         // Programmatically expose helper brushes for hover, active, and dropdown/popup states
         if (isLight)
@@ -80,8 +141,8 @@ public static class ThemeService
             res["HoverBg"] = new SolidColorBrush(Color.FromArgb(0x12, 0x00, 0x00, 0x00));  // 7% black
             res["ActiveBg"] = new SolidColorBrush(Color.FromArgb(0x1D, 0x00, 0x00, 0x00)); // 11% black
             res["CardHoverBg"] = new SolidColorBrush(Color.FromArgb(0x0A, 0x00, 0x00, 0x00));
-            res["PopupBg"] = new SolidColorBrush(Color.FromArgb(0xF2, 0xFA, 0xFA, 0xFC)); // clean light acrylic/solid
-            res["PopupBorder"] = new SolidColorBrush(Color.FromArgb(0x40, 0x00, 0x00, 0x00));
+            res["PopupBg"] = new SolidColorBrush(Color.FromArgb(0xFA, 0xF5, 0xF6, 0xF8)); // 98% solid light popup
+            res["PopupBorder"] = new SolidColorBrush(Color.FromArgb(0x38, 0x64, 0x74, 0x8B));
             res["InputBg"] = new SolidColorBrush(Color.FromArgb(0x12, 0x00, 0x00, 0x00)); // 7% black input bg for light mode
         }
         else
@@ -89,20 +150,31 @@ public static class ThemeService
             res["HoverBg"] = new SolidColorBrush(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF));  // 9% white
             res["ActiveBg"] = new SolidColorBrush(Color.FromArgb(0x25, 0xFF, 0xFF, 0xFF)); // 14% white
             res["CardHoverBg"] = new SolidColorBrush(Color.FromArgb(0x12, 0xFF, 0xFF, 0xFF));
-            res["PopupBg"] = new SolidColorBrush(Color.FromArgb(0xEE, 0x1E, 0x1E, 0x24)); // dark acrylic/solid
-            res["PopupBorder"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
+            res["PopupBg"] = new SolidColorBrush(Color.FromArgb(0xFA, 0x1E, 0x1E, 0x24)); // 98% solid dark popup
+            res["PopupBorder"] = new SolidColorBrush(Color.FromArgb(0x38, 0x38, 0x38, 0x3D));
             res["InputBg"] = new SolidColorBrush(Color.FromArgb(0x0A, 0xFF, 0xFF, 0xFF)); // 4% white input bg for dark mode
         }
 
         ThemeApplied?.Invoke();
     }
 
-    private static void SetBrush(ResourceDictionary res, string key, string hex)
+    private static void SetBrush(ResourceDictionary res, string key, string hex, byte deepAlpha = 255)
     {
         if (!TryParseColor(hex, out var color)) return;
 
-        // Apply glassmorphism transparency to background layers if not explicitly specified
-        if (color.A == 255)
+        // Apply glassmorphism transparency to background layers if deepAlpha < 255 or color.A == 255
+        if (deepAlpha < 255)
+        {
+            if (key == "BgCard")
+                color.A = (byte)Math.Clamp(Math.Round(deepAlpha * 0.85), 20, 255);
+            else if (key == "BgSurface")
+                color.A = (byte)Math.Clamp(Math.Round(deepAlpha * 0.90), 25, 255);
+            else if (key == "BgElevated")
+                color.A = (byte)Math.Clamp(Math.Round(deepAlpha * 0.95), 30, 255);
+            else if (key == "BgDeep")
+                color.A = deepAlpha;
+        }
+        else if (color.A == 255)
         {
             if (key == "BgCard")
                 color.A = 0xAC; // ~67% opacity for glass cards
@@ -258,8 +330,8 @@ public static class ThemeService
 
     public static ThemeSettings Sandstone => new()
     {
-        BgDeep = "#F4EFEA", BgSurface = "#FAF6F0", BgCard = "#EFEAE4",
-        BgElevated = "#E5DDD4", BorderSub = "#D5C9BC",
+        BgDeep = "#E0F4EFEA", BgSurface = "#AAF7F2EB", BgCard = "#80FAF6F0",
+        BgElevated = "#90EBE4DB", BorderSub = "#405C4F44",
         Accent = "#D97706", AccentAlt = "#B45309",
         TextPrimary = "#2C2520", TextSec = "#786B60",
         SuccessGreen = "#10B981", ErrorRed = "#EF4444",

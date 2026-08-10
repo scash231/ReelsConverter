@@ -21,11 +21,12 @@ public partial class ProgressWindow : Window
     private DateTime? _jobStartTime;
     private string _lastPhaseKey = string.Empty;
     private bool _isPhaseAnimating;
-    private (int pct, string message, string detail, int? eta) _pending;
+    private (int pct, string message, string detail, int? eta, string? speed) _pending;
     private double? _smoothedEta;
-    private const double EtaAlpha = 0.10;
+    private const double EtaAlpha = 0.15;
     private DateTime _lastEtaUpdateTime = DateTime.MinValue;
 
+    private bool _hasNotifiedCompletion;
     public bool IsLogOpen => TxtConsole.Visibility == Visibility.Visible;
     public string LogContent => TxtConsole.Text;
 
@@ -36,8 +37,27 @@ public partial class ProgressWindow : Window
         InitializeComponent();
         _cts = cts;
         _originRect = originRect;
+        SourceInitialized += OnSourceInitialized;
         Loaded += OnLoaded;
     }
+
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+        Services.WindowBlurHelper.ApplyRoundedRegion(this);
+    }
+
+    private void WindowCornerGrip_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.LeftButton == MouseButtonState.Pressed)
+            Services.SettingsService.StartWindowResizeBottomRight(this);
+    }
+
+    private void WindowCornerGrip_MouseEnter(object sender, MouseEventArgs e)
+        => Services.SettingsService.HandleGripHover(sender, true);
+
+    private void WindowCornerGrip_MouseLeave(object sender, MouseEventArgs e)
+        => Services.SettingsService.HandleGripHover(sender, false);
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -50,6 +70,8 @@ public partial class ProgressWindow : Window
         }
 
         Services.WindowBlurHelper.EnableBlurWithFade(this, RootBorder);
+        Services.SettingsService.SettingsChanged += (_, _) => Services.SettingsService.ApplyResizeGripVisibility(this);
+        Services.SettingsService.ApplyResizeGripVisibility(this);
         FluidMotion.MorphOpen(RootBorder, WinScale, WinTranslate, _originRect, this);
     }
 
@@ -58,41 +80,50 @@ public partial class ProgressWindow : Window
         if (e.LeftButton == MouseButtonState.Pressed) DragMove();
     }
 
-    public void UpdateProgress(int pct, string message, string detail, int? eta = null)
+    public void UpdateProgress(int pct, string message, string detail, int? eta = null, string? speed = null)
     {
         if (_done) return;
-
-        if (_jobStartTime == null && pct > 0)
-            _jobStartTime = DateTime.UtcNow;
-
-        int? effectiveEta = eta is > 0 ? eta : null;
-        if (effectiveEta == null && _jobStartTime.HasValue && pct >= 5 && pct < 100)
-        {
-            var elapsed = (DateTime.UtcNow - _jobStartTime.Value).TotalSeconds;
-            effectiveEta = (int)(elapsed * (100 - pct) / pct);
-        }
-
-        if (effectiveEta is > 0)
-        {
-            _smoothedEta = _smoothedEta == null
-                ? effectiveEta.Value
-                : EtaAlpha * effectiveEta.Value + (1 - EtaAlpha) * _smoothedEta.Value;
-            effectiveEta = (int)Math.Round(_smoothedEta.Value);
-        }
 
         var phaseKey = GetPhaseKey(message);
         var isPhaseChange = !_isPhaseAnimating
                             && _lastPhaseKey.Length > 0
                             && phaseKey.Length > 0
                             && phaseKey != _lastPhaseKey;
-        if (phaseKey.Length > 0) _lastPhaseKey = phaseKey;
 
-        _pending = (pct, message, detail, effectiveEta);
+        if (phaseKey.Length > 0 && phaseKey != _lastPhaseKey)
+        {
+            _lastPhaseKey = phaseKey;
+            _smoothedEta = null;
+            _jobStartTime = DateTime.UtcNow;
+        }
+
+        if (_jobStartTime == null && pct > 0)
+            _jobStartTime = DateTime.UtcNow;
+
+        int? effectiveEta = eta is > 0 ? eta : null;
+        if (effectiveEta == null && _jobStartTime.HasValue && pct >= 3 && pct < 100)
+        {
+            var elapsed = (DateTime.UtcNow - _jobStartTime.Value).TotalSeconds;
+            if (elapsed > 0.8)
+            {
+                effectiveEta = (int)Math.Max(1, Math.Round(elapsed * (100 - pct) / pct));
+            }
+        }
+
+        if (effectiveEta is > 0)
+        {
+            _smoothedEta = _smoothedEta == null
+                ? effectiveEta.Value
+                : EtaAlpha * effectiveEta.Value + (1.0 - EtaAlpha) * _smoothedEta.Value;
+            effectiveEta = (int)Math.Max(1, Math.Round(_smoothedEta.Value));
+        }
+
+        _pending = (pct, message, detail, effectiveEta, speed);
 
         if (isPhaseChange)
             AnimatePhaseTransition();
         else if (!_isPhaseAnimating)
-            ApplyProgressValues(pct, message, detail, effectiveEta);
+            ApplyProgressValues(pct, message, detail, effectiveEta, speed);
     }
 
     private static string GetPhaseKey(string message)
@@ -103,23 +134,32 @@ public partial class ProgressWindow : Window
                       .ToLowerInvariant();
     }
 
-    private void ApplyProgressValues(int pct, string message, string detail, int? effectiveEta)
+    private void ApplyProgressValues(int pct, string message, string detail, int? effectiveEta, string? speed = null)
     {
         TxtProgressMsg.Text = message;
         TxtProgressPct.Text = $"{pct}%";
         TxtProgressDetail.Text = detail;
 
-        if (effectiveEta is > 0)
+        var etaStr = string.Empty;
+        if (effectiveEta is > 0 && pct < 100)
         {
-            var now = DateTime.UtcNow;
-            if ((now - _lastEtaUpdateTime).TotalSeconds >= 1.0)
-            {
-                var ts = TimeSpan.FromSeconds(effectiveEta.Value);
-                TxtEta.Text = ts.TotalHours >= 1
-                    ? $"ETA {ts:hh\\:mm\\:ss}"
-                    : $"ETA {ts:mm\\:ss}";
-                _lastEtaUpdateTime = now;
-            }
+            var ts = TimeSpan.FromSeconds(effectiveEta.Value);
+            etaStr = ts.TotalHours >= 1
+                ? $"ETA {ts:hh\\:mm\\:ss}"
+                : $"ETA {ts:mm\\:ss}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(speed) && !string.IsNullOrWhiteSpace(etaStr))
+        {
+            TxtEta.Text = $"{speed}  •  {etaStr}";
+        }
+        else if (!string.IsNullOrWhiteSpace(speed))
+        {
+            TxtEta.Text = speed;
+        }
+        else if (!string.IsNullOrWhiteSpace(etaStr))
+        {
+            TxtEta.Text = etaStr;
         }
         else
         {
@@ -136,7 +176,7 @@ public partial class ProgressWindow : Window
         FrameworkElement[] rows = [RowMsgPct, ProgressTrack, RowDetail];
         FluidMotion.PhaseOut(rows, () =>
         {
-            ApplyProgressValues(_pending.pct, _pending.message, _pending.detail, _pending.eta);
+            ApplyProgressValues(_pending.pct, _pending.message, _pending.detail, _pending.eta, _pending.speed);
             AnimatePhaseIn(rows);
         });
     }
@@ -146,7 +186,7 @@ public partial class ProgressWindow : Window
         FluidMotion.PhaseIn(rows, () =>
         {
             _isPhaseAnimating = false;
-            ApplyProgressValues(_pending.pct, _pending.message, _pending.detail, _pending.eta);
+            ApplyProgressValues(_pending.pct, _pending.message, _pending.detail, _pending.eta, _pending.speed);
         });
     }
 
@@ -166,9 +206,29 @@ public partial class ProgressWindow : Window
         if (success)
         {
             _countdownRemaining = 4;
-            TxtCountdown.Text = $"Schlie\u00dft in {_countdownRemaining} s\u2026";
+            TxtCountdown.Text = $"Schließt in {_countdownRemaining} s…";
             TxtCountdown.Visibility = Visibility.Visible;
             StartCountdown();
+        }
+
+        if (Services.SettingsService.Current.NotifyOnComplete && !_hasNotifiedCompletion)
+        {
+            _hasNotifiedCompletion = true;
+            try
+            {
+                bool playSound = Services.SettingsService.Current.EnableNotificationSound;
+                if (success)
+                {
+                    if (playSound) try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
+                    NotificationWindow.Show("Konvertierung erfolgreich abgeschlossen!", Owner ?? this, NotificationType.Info);
+                }
+                else
+                {
+                    if (playSound) try { System.Media.SystemSounds.Hand.Play(); } catch { }
+                    NotificationWindow.Show("Konvertierung fehlgeschlagen!", Owner ?? this, NotificationType.Error);
+                }
+            }
+            catch { }
         }
     }
 

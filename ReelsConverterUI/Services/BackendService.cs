@@ -49,6 +49,16 @@ public sealed class BackendService : IDisposable
         return JsonSerializer.Deserialize<MetadataResponse>(json, _jso);
     }
 
+    public async Task<MetadataResponse?> FetchYTMusicMetadataAsync(string url, CancellationToken ct = default)
+    {
+        var body = JsonSerializer.Serialize(new { url });
+        var resp = await _http.PostAsync("/api/ytmusic/metadata",
+            new StringContent(body, Encoding.UTF8, "application/json"), ct).ConfigureAwait(false);
+        resp.EnsureSuccessStatusCode();
+        var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<MetadataResponse>(json, _jso);
+    }
+
     public async Task<string> CreateJobAsync(
         string url, string mode, string platform,
         string? title, string? description, List<string>? tags,
