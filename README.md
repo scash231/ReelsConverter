@@ -1,7 +1,6 @@
 # MediaConverter - VideoConverter
 
-C# WPF app with a Python backend for downloading and re-uploading short-form videos to YouTube Shorts. Supports Instagram, TikTok, and YouTube. Other sources MAY possibly also be supported.
-
+Modern C# WPF desktop application with a high-performance Python backend for downloading, converting, and auto-uploading media across YouTube Music, YouTube Shorts, Instagram Reels, TikTok, and universal web sources with built-in anti-detection video fingerprinting.
 Check Requirments.txt
 
 # 26H2 Beta
