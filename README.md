@@ -1,5 +1,7 @@
 # MediaConverter - VideoConverter
 
+Alpha - https://github.com/scash231/VideoConverter/releases/tag/27H1
+
 Modern C# WPF desktop application with a high-performance Python backend for downloading, converting, and auto-uploading media across YouTube Music, YouTube Shorts, Instagram Reels, TikTok, and universal web sources with built-in anti-detection video fingerprinting.
 Check Requirments.txt
 
