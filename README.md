@@ -40,6 +40,9 @@ Check Requirments.txt
 - Audio/Video support
 - 4k/2k/1080p/720p/480p/Audio Only
 - Metadata and Video/Audio Changer Option to avoid automaitc Heuristic Detections from Several Plattoforms.
-
 - Fully Automatic Uploud function to Youtube (You need your API Key for that - Requirments)
-<img width="764" height="562" alt="image" src="https://github.com/user-attachments/assets/372b9f46-8634-4f2d-a26a-5fa01657ee86" />
+
+26H2 Beta <img width="764" height="562" alt="image" src="https://github.com/user-attachments/assets/372b9f46-8634-4f2d-a26a-5fa01657ee86" />
+
+27H1 Canary<img width="755" height="555" alt="image" src="https://github.com/user-attachments/assets/10c36ef0-e062-47cb-b0df-5c30fe8a91ee" />
+
